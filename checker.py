@@ -2,7 +2,7 @@ from os import listdir
 from functools import partial
 import subprocess
 
-cmd             = ["java", "-cp", "antlr-4.5.1-complete.jar:.", "tool.SRTool"]
+cmd             = ["./srtool"]
 correctSuffix   = "./tests/correct/"
 incorrectSuffix = "./tests/incorrect/"
 
