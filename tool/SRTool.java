@@ -3,6 +3,8 @@ import java.io.BufferedWriter;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.List;
+import java.util.ArrayList;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -38,10 +40,14 @@ public class SRTool {
 			}
 			System.exit(1);
 		}
-		
+
+    List<String> globalVariables = getGlobalVariables(ctx.globals);
 		assert ctx.procedures.size() == 1; // For Part 1 of the coursework, this can be assumed
-				
+
 		for(ProcedureDeclContext proc : ctx.procedures) {
+      SSAVisitor ssaForm = new SSAVisitor(globalVariables);
+      SSAResult res = ssaForm.visit(proc);
+
 			VCGenerator vcgen = new VCGenerator(proc);
 			String vc = vcgen.generateVC().toString();
 
@@ -53,21 +59,30 @@ public class SRTool {
 				System.out.println("UNKNOWN");
 				System.exit(1);
 			}
-			
+
 			if (queryResult.startsWith("sat")) {
 				System.out.println("INCORRECT");
 				System.exit(0);
 			}
-			
+
 			if (!queryResult.startsWith("unsat")) {
 				System.out.println("UNKNOWN");
 				System.out.println(queryResult);
 				System.exit(1);
 			}
 		}
-		
+
 		System.out.println("CORRECT");
 		System.exit(0);
-		
+
+  }
+
+  private static List<String> getGlobalVariables(List<SimpleCParser.VarDeclContext> globals) {
+    List<String> variables = new ArrayList<String>();
+    for (SimpleCParser.VarDeclContext variable : globals) {
+      variables.add(variable.ident.ID().getSymbol().getText());
     }
+    return variables;
+  }
+
 }
