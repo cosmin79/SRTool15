@@ -47,6 +47,9 @@ public class SRTool {
 		for(ProcedureDeclContext proc : ctx.procedures) {
       SSAVisitor ssaForm = new SSAVisitor(globalVariables);
       SSAResult res = ssaForm.visit(proc);
+      System.out.println("Translated program:");
+      System.out.println(res.getCode().toString());
+      System.out.println("---------------------");
 
 			VCGenerator vcgen = new VCGenerator(proc);
 			String vc = vcgen.generateVC().toString();

@@ -1,7 +1,7 @@
 int a;
 int b;
 
-int main()
+int main(int a, int b)
 {
   int x;
   int y;
