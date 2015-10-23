@@ -51,22 +51,11 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
     private List<Set<String>> modSetStack = new LinkedList<>();
 
-    private Map<String, Integer> freshIds = new HashMap<>();
+    private VariableIdsGenerator freshIds;
 
-    public SimpleCToSSA(Map<String, Integer> globals) {
+    public SimpleCToSSA(Map<String, Integer> globals, VariableIdsGenerator freshIds) {
         varStack.add(0, globals);
-        for (String var: globals.keySet()) {
-            freshIds.put(var, 0);
-        }
-    }
-
-    // HELPER methods start
-    Integer generateFresh(String name) {
-        Integer prevUse = freshIds.get(name);
-        Integer newId = prevUse == null ? 0 : prevUse + 1;
-        freshIds.put(name, newId);
-
-        return newId;
+        this.freshIds = freshIds;
     }
 
     private Map<String, Integer> peekLocalsStack() {
@@ -82,7 +71,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     void addVariableToScope(String name) {
-        Integer newId = generateFresh(name);
+        Integer newId = freshIds.generateFresh(name);
         peekLocalsStack().put(name, newId);
     }
 

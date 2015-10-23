@@ -42,18 +42,20 @@ public class SRTool {
 			System.exit(1);
 		}
 
+		// create a new handler for variable ids that is going to be shared across classes
+		VariableIdsGenerator idsGenerator = new VariableIdsGenerator();
+
 		// record the global variables here in a stack (all those variables have id 0 initially)
 		Map<String, Integer> globalsStack = new HashMap<>();
-		// TODO(ccarabet): can we have more than one variable declaration for the same var?
 		for(SimpleCParser.VarDeclContext varDecl : ctx.globals) {
 			String varName = varDecl.ident.name.getText();
-			globalsStack.put(varName, 0);
+			globalsStack.put(varName, idsGenerator.generateFresh(varName));
 		}
 
 		//assert ctx.procedures.size() == 1; // For Part 1 of the coursework, this can be assumed
 		// Check each procedure by applying summarisation techniques for any method calls
 		for(ProcedureDeclContext proc : ctx.procedures) {
-			VCGenerator vcgen = new VCGenerator(proc, globalsStack);
+			VCGenerator vcgen = new VCGenerator(proc, globalsStack, idsGenerator);
 			String vc = vcgen.generateVC().toString();
 
 			ProcessExec process = new ProcessExec("./z3", "-smt2", "-in");
