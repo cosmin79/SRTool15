@@ -35,7 +35,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             String andExpr = "(and %s (tobool %s))";
             String andAssertions = String.format("(tobool %s)", assertConditions.get(0));
             for (int i = 1; i < assertConditions.size(); i++) {
-                andAssertions = String.format(andExpr, code, assertConditions.get(i));
+                andAssertions = String.format(andExpr, andAssertions, assertConditions.get(i));
             }
             code.append(String.format("(assert (not %s))", andAssertions) + EOL);
         }
@@ -423,7 +423,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
 
         Map<String, String> unaryOperatorToSSA = new HashMap<String, String>() {{
             put("+", "%s");
-            put("-", "");
+            put("-", "(bvneg %s)");
             put("!", "(tobv32 (not (tobool %s)))");
             put("~", "(bvnot %s)");
         }};
