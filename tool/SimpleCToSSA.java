@@ -56,7 +56,7 @@ class ScopeInfo {
 
     public ScopeInfo(Map<String, Integer> variables) {
         this.variables = variables;
-        this.conditions = new LinkedList<>();
+        conditions = new LinkedList<>();
     }
 
     public Map<String, Integer> getVariables() {
@@ -67,12 +67,16 @@ class ScopeInfo {
         return conditions;
     }
 
-    public void addVariable(String name, Integer id) {
-        variables.put(name, id);
-    }
-
     public Integer getVariable(String name) {
         return variables.get(name);
+    }
+
+    public SimpleCParser.ExprContext getReturnStmt() {
+        return returnStmt;
+    }
+
+    public void addVariable(String name, Integer id) {
+        variables.put(name, id);
     }
 
     public void addCondition(String cond) {
@@ -81,10 +85,6 @@ class ScopeInfo {
 
     public void setReturnStmt(SimpleCParser.ExprContext returnStmt) {
         this.returnStmt = returnStmt;
-    }
-
-    public SimpleCParser.ExprContext getReturnStmt() {
-        return returnStmt;
     }
 }
 
@@ -108,15 +108,17 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
     private List<ScopeInfo> scopesStack = new LinkedList<>();
 
+    private List<String> assumptions;
+
     private VariableIdsGenerator freshIds;
 
     public SimpleCToSSA(Map<String, Integer> globals, VariableIdsGenerator freshIds) {
         scopesStack.add(0, new ScopeInfo(globals));
         this.freshIds = freshIds;
+        assumptions = new LinkedList<>();
     }
 
     // HELPER methods for scope related stuff - BEGIN
-
     private ScopeInfo peekScope() {
         return scopesStack.get(0);
     }
@@ -138,11 +140,19 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         peekScope().addCondition(condition);
     }
 
+    private void addAssumption(String condition) {
+        String conditionGlobals = getConditionsGlobal();
+        if (!conditionGlobals.isEmpty()) {
+            condition = String.format(IMPLICATION_STMT, getConditionsGlobal(), condition);
+        }
+        assumptions.add(condition);
+    }
+
     private void addReturnStmtToScope(SimpleCParser.ExprContext returnStmt) {
         peekScope().setReturnStmt(returnStmt);
     }
 
-    String latestVarRef(String name) {
+    private String latestVarRef(String name) {
         for (ScopeInfo scope: scopesStack) {
             Integer valueForVar = scope.getVariable(name);
             if (valueForVar != null) {
@@ -153,7 +163,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         return null;
     }
 
-    String getFromGivenScopeOrGlobal(ScopeInfo givenScope, String name) {
+    private String getFromGivenScopeOrGlobal(ScopeInfo givenScope, String name) {
         Integer latestId = givenScope.getVariable(name);
         String result;
         if (latestId == null) {
@@ -165,25 +175,41 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         return result;
     }
 
-    String getConditionsGlobal() {
+    private String combineConditions(String cond1, String cond2) {
+        if (cond1.isEmpty()) {
+            return cond2;
+        } else if (cond2.isEmpty()) {
+            return cond1;
+        }
+
+        return String.format("%s && %s", cond1, cond2);
+    }
+
+    private String andConditions(List<String> conditions) {
+        String result = "";
+        for (String condition: conditions) {
+            result = combineConditions(result, condition);
+        }
+
+        return result;
+    }
+
+    private String getConditionsGlobal() {
         List<String> allConds = new ArrayList<>();
         for (ScopeInfo scope: scopesStack) {
             for (String cond: scope.getConditions()) {
                 allConds.add(cond);
             }
         }
-        String result = "";
-        if (allConds.size() > 0) {
-            result = allConds.get(0);
-            for (int i = 1; i < allConds.size(); i++) {
-                result = String.format("%s && %s", result, allConds.get(i));
-            }
-        }
 
-        return result;
+        return andConditions(allConds);
     }
 
-    SimpleCParser.ExprContext getEnclosingrMethodReturnStmt() {
+    private String getAssumptionsGlobal() {
+        return andConditions(assumptions);
+    }
+
+    private SimpleCParser.ExprContext getEnclosingrMethodReturnStmt() {
         for (ScopeInfo scope: scopesStack) {
             SimpleCParser.ExprContext returnStmt = scope.getReturnStmt();
             if (returnStmt != null) {
@@ -193,12 +219,10 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
         return null;
     }
-
     // HELPER methods for scope related stuff - END
 
 
     // HELPER methods for method related stuff - BEGIN
-
     /**
      * POST: obtain the precondition expressions for a method with the current mapping
       */
@@ -230,7 +254,6 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
         return result;
     }
-
     // HELPER methods for method related stuff - END
 
     @Override
@@ -258,6 +281,12 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
                 addVariableToScope(param.ident.name.getText());
             }
         }
+
+        // add preconditions
+        for (NodeResult assumption: getPreconditionsForMethod(ctx)) {
+            addAssumption(assumption.getCode().toString());
+        }
+
         // visit method body
         for (SimpleCParser.StmtContext stmt: ctx.stmt()) {
             NodeResult stmtResult = visit(stmt);
@@ -279,9 +308,13 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
     @Override
     public NodeResult visitVarDecl(SimpleCParser.VarDeclContext ctx) {
-        addVariableToScope(ctx.ident.name.getText());
+        String varName = ctx.ident.name.getText();
+        addVariableToScope(varName);
 
-        return new NodeResult();
+        Set<String> modSet = new HashSet<>();
+        modSet.add(varName);
+
+        return new NodeResult(new StringBuilder(), modSet, peekScope());
     }
 
     @Override
@@ -310,12 +343,32 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         NodeResult condExpr = visit(ctx.condition);
 
         String condition = condExpr.getCode().toString();
-        String allConditions = getConditionsGlobal();
-        if (allConditions.length() > 0) {
+        String allConditions = combineConditions(getConditionsGlobal(), getAssumptionsGlobal());
+        if (!allConditions.isEmpty()) {
             condition = String.format(IMPLICATION_STMT, allConditions, condition);
         }
         code.append(String.format(ASSERT_STMT, condition));
+
         return new NodeResult(code, new HashSet<>(), peekScope());
+    }
+
+    @Override
+    public NodeResult visitHavocStmt(SimpleCParser.HavocStmtContext ctx) {
+        String varName = ctx.var.ident.name.getText();
+        addVariableToScope(varName);
+
+        Set<String> modSet = new HashSet<>();
+        modSet.add(varName);
+
+        return new NodeResult(new StringBuilder(), modSet, peekScope());
+    }
+
+    @Override
+    public NodeResult visitAssumeStmt(SimpleCParser.AssumeStmtContext ctx) {
+        NodeResult cond = visit(ctx.condition);
+        addAssumption(cond.getCode().toString());
+
+        return new NodeResult(new StringBuilder(), cond.getModSet(), peekScope());
     }
 
     @Override
