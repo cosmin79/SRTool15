@@ -6,15 +6,15 @@ import org.antlr.v4.runtime.Token;
 import parser.SimpleCBaseVisitor;
 import parser.SimpleCParser;
 
-import java.lang.reflect.Method;
 import java.util.*;
 
 class NodeResult {
 
     StringBuilder code;
     Set<String> modSet;
-    // it's not quite sure what this is supposed to represent..
-    // ideally it should be the mappings from modSet to actual integer
+    // this contains the local scope at the current node
+    // this is useful for if statements when evaluating the then and else statement blocks
+    // once the exploration of the 2 branches completes, this field can be used to recall how did their scope look like
     ScopeInfo latestScope;
 
     public NodeResult() {
@@ -79,14 +79,17 @@ class MethodScope {
 
     private SimpleCParser.ProcedureDeclContext procedureNode;
 
+    private Map<String, Integer> globalsValue;
+
     private List<SimpleCParser.RequiresContext> preConditionsNodes;
 
     private List<SimpleCParser.EnsuresContext> postConditionsNodes;
 
     private SimpleCParser.ExprContext returnStmt;
 
-    public MethodScope(SimpleCParser.ProcedureDeclContext ctx) {
+    public MethodScope(SimpleCParser.ProcedureDeclContext ctx, Map<String, Integer> globalsValue) {
         procedureNode = ctx;
+        this.globalsValue = globalsValue;
         returnStmt = ctx.returnExpr;
         preConditionsNodes = new LinkedList<>();
         postConditionsNodes = new LinkedList<>();
@@ -98,6 +101,10 @@ class MethodScope {
                 postConditionsNodes.add(cond.ensures());
             }
         }
+    }
+
+    public Integer getGlobalValueAtEntry(String varName) {
+        return globalsValue.get(varName);
     }
 
     public List<SimpleCParser.RequiresContext> getPreConditionsNodes() {
@@ -131,7 +138,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
     private static final String IMPLICATION_STMT = "!(%s) || %s";
 
-    private Set<String> globalVariables;
+    private List<String> globalVariables;
 
     private List<ScopeInfo> scopesStack;
 
@@ -142,7 +149,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     private VariableIdsGenerator freshIds;
 
     public SimpleCToSSA(Map<String, Integer> globals, VariableIdsGenerator freshIds) {
-        globalVariables = globals.keySet();
+        globalVariables = new LinkedList<>(globals.keySet());
 
         scopesStack = new LinkedList<>();
         scopesStack.add(0, new ScopeInfo(globals));
@@ -194,15 +201,19 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         assumptions.add(condition);
     }
 
-    private String latestVarRef(String name) {
+    private Integer latestVarId(String name) {
         for (ScopeInfo scope: scopesStack) {
             Integer valueForVar = scope.getVariable(name);
             if (valueForVar != null) {
-                return String.format(VAR_ID, name, valueForVar);
+                return valueForVar;
             }
         }
 
         return null;
+    }
+
+    private String latestVarRef(String name) {
+        return String.format(VAR_ID, name, latestVarId(name));
     }
 
     private String getFromGivenScopeOrGlobal(ScopeInfo givenScope, String name) {
@@ -263,6 +274,15 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     private SimpleCParser.ExprContext getEnclosingrMethodReturnStmt() {
         return peekMethodScope().getReturnStmt();
     }
+
+    private Map<String, Integer> globalsValueAtEntry() {
+        Map<String, Integer> globalsValues = new HashMap<>();
+        for (String globalVar: globalVariables) {
+            globalsValues.put(globalVar, latestVarId(globalVar));
+        }
+
+        return globalsValues;
+    }
     // HELPER methods for scope related stuff - END
 
     @Override
@@ -281,7 +301,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         Set<String> modSet = new HashSet<>();
 
         pushStack();
-        pushMethodStack(new MethodScope(ctx));
+        pushMethodStack(new MethodScope(ctx, globalsValueAtEntry()));
 
         // add parameters to current stack
         if (ctx.formals != null) {
@@ -635,6 +655,9 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
     @Override
     public NodeResult visitOldExpr(SimpleCParser.OldExprContext ctx) {
-        return null;
+        String varName = ctx.arg.ident.name.getText();
+        String newCode = String.format(VAR_ID, varName, peekMethodScope().getGlobalValueAtEntry(varName));
+
+        return new NodeResult(new StringBuilder(newCode), new HashSet<>(), peekScope());
     }
 }
