@@ -6,6 +6,7 @@ import org.antlr.v4.runtime.Token;
 import parser.SimpleCBaseVisitor;
 import parser.SimpleCParser;
 
+import java.lang.reflect.Method;
 import java.util.*;
 
 class NodeResult {
@@ -43,12 +44,6 @@ class ScopeInfo {
 
     private List<String> conditions;
 
-    // if the scope corresponds to a method scope, it must have a return statement
-    // null if the scope is not a method scope
-    // TODO(ccarabet): once a method starts to contain more logic, it might be a good idea to move this
-    // into a special purpose method info class
-    private SimpleCParser.ExprContext returnStmt = null;
-
     public ScopeInfo() {
         variables = new HashMap<>();
         conditions = new LinkedList<>();
@@ -71,10 +66,6 @@ class ScopeInfo {
         return variables.get(name);
     }
 
-    public SimpleCParser.ExprContext getReturnStmt() {
-        return returnStmt;
-    }
-
     public void addVariable(String name, Integer id) {
         variables.put(name, id);
     }
@@ -82,9 +73,43 @@ class ScopeInfo {
     public void addCondition(String cond) {
         conditions.add(cond);
     }
+}
 
-    public void setReturnStmt(SimpleCParser.ExprContext returnStmt) {
-        this.returnStmt = returnStmt;
+class MethodScope {
+
+    private SimpleCParser.ProcedureDeclContext procedureNode;
+
+    private List<SimpleCParser.RequiresContext> preConditionsNodes;
+
+    private List<SimpleCParser.EnsuresContext> postConditionsNodes;
+
+    private SimpleCParser.ExprContext returnStmt;
+
+    public MethodScope(SimpleCParser.ProcedureDeclContext ctx) {
+        procedureNode = ctx;
+        returnStmt = ctx.returnExpr;
+        preConditionsNodes = new LinkedList<>();
+        postConditionsNodes = new LinkedList<>();
+
+        for (SimpleCParser.PrepostContext cond: ctx.contract) {
+            if (cond.requires() != null) {
+                preConditionsNodes.add(cond.requires());
+            } else if (cond.ensures() != null) {
+                postConditionsNodes.add(cond.ensures());
+            }
+        }
+    }
+
+    public List<SimpleCParser.RequiresContext> getPreConditionsNodes() {
+        return preConditionsNodes;
+    }
+
+    public List<SimpleCParser.EnsuresContext> getPostConditionsNodes() {
+        return postConditionsNodes;
+    }
+
+    public SimpleCParser.ExprContext getReturnStmt() {
+        return returnStmt;
     }
 }
 
@@ -106,15 +131,24 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
     private static final String IMPLICATION_STMT = "!(%s) || %s";
 
-    private List<ScopeInfo> scopesStack = new LinkedList<>();
+    private Set<String> globalVariables;
+
+    private List<ScopeInfo> scopesStack;
+
+    private List<MethodScope> methodScopesStack;
 
     private List<String> assumptions;
 
     private VariableIdsGenerator freshIds;
 
     public SimpleCToSSA(Map<String, Integer> globals, VariableIdsGenerator freshIds) {
+        globalVariables = globals.keySet();
+
+        scopesStack = new LinkedList<>();
         scopesStack.add(0, new ScopeInfo(globals));
+
         this.freshIds = freshIds;
+        methodScopesStack = new LinkedList<>();
         assumptions = new LinkedList<>();
     }
 
@@ -123,12 +157,24 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         return scopesStack.get(0);
     }
 
+    private MethodScope peekMethodScope() {
+        return methodScopesStack.get(0);
+    }
+
     private void popStack() {
         scopesStack.remove(0);
     }
 
+    private void popMethodsStack() {
+        methodScopesStack.remove(0);
+    }
+
     private void pushStack() {
         scopesStack.add(0, new ScopeInfo());
+    }
+
+    private void pushMethodStack(MethodScope method) {
+        methodScopesStack.add(0, method);
     }
 
     private void addVariableToScope(String name) {
@@ -146,10 +192,6 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
             condition = String.format(IMPLICATION_STMT, getConditionsGlobal(), condition);
         }
         assumptions.add(condition);
-    }
-
-    private void addReturnStmtToScope(SimpleCParser.ExprContext returnStmt) {
-        peekScope().setReturnStmt(returnStmt);
     }
 
     private String latestVarRef(String name) {
@@ -209,52 +251,19 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         return andConditions(assumptions);
     }
 
-    private SimpleCParser.ExprContext getEnclosingrMethodReturnStmt() {
-        for (ScopeInfo scope: scopesStack) {
-            SimpleCParser.ExprContext returnStmt = scope.getReturnStmt();
-            if (returnStmt != null) {
-                return returnStmt;
-            }
+    private String getGlobalAssertCondition(String condition) {
+        String allConditions = combineConditions(getConditionsGlobal(), getAssumptionsGlobal());
+        if (!allConditions.isEmpty()) {
+            condition = String.format(IMPLICATION_STMT, allConditions, condition);
         }
 
-        return null;
+        return String.format(ASSERT_STMT, condition);
+    }
+
+    private SimpleCParser.ExprContext getEnclosingrMethodReturnStmt() {
+        return peekMethodScope().getReturnStmt();
     }
     // HELPER methods for scope related stuff - END
-
-
-    // HELPER methods for method related stuff - BEGIN
-    /**
-     * POST: obtain the precondition expressions for a method with the current mapping
-      */
-    private List<NodeResult> getPreconditionsForMethod(SimpleCParser.ProcedureDeclContext ctx) {
-        List<NodeResult> result = new LinkedList<>();
-        if (ctx.contract != null) {
-            for (SimpleCParser.PrepostContext cond: ctx.contract) {
-                if (cond.requires() != null) {
-                    result.add(visit(cond.getChild(0)));
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * POST: obtain the postcondition expressions for a method with the current mapping
-     */
-    private List<NodeResult> getPostconditionsForMethod(SimpleCParser.ProcedureDeclContext ctx) {
-        List<NodeResult> result = new LinkedList<>();
-        if (ctx.contract != null) {
-            for (SimpleCParser.PrepostContext cond: ctx.contract) {
-                if (cond.ensures() != null) {
-                    result.add(visit(cond.getChild(0)));
-                }
-            }
-        }
-
-        return result;
-    }
-    // HELPER methods for method related stuff - END
 
     @Override
     public NodeResult visitEnsures(SimpleCParser.EnsuresContext ctx) {
@@ -272,10 +281,9 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         Set<String> modSet = new HashSet<>();
 
         pushStack();
-        // add return stmt to scope so that postconditions can refer to it later
-        addReturnStmtToScope(ctx.returnExpr);
+        pushMethodStack(new MethodScope(ctx));
 
-        // add parameters on stack
+        // add parameters to current stack
         if (ctx.formals != null) {
             for (SimpleCParser.FormalParamContext param: ctx.formals) {
                 addVariableToScope(param.ident.name.getText());
@@ -283,8 +291,9 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         }
 
         // add preconditions
-        for (NodeResult assumption: getPreconditionsForMethod(ctx)) {
-            addAssumption(assumption.getCode().toString());
+        for (SimpleCParser.RequiresContext assumption: peekMethodScope().getPreConditionsNodes()) {
+            NodeResult assumptionExpr = visit(assumption);
+            addAssumption(assumptionExpr.getCode().toString());
         }
 
         // visit method body
@@ -294,13 +303,15 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
             modSet.addAll(stmtResult.getModSet());
         }
 
-        // add postconditions checks
-        for (NodeResult cond: getPostconditionsForMethod(ctx)) {
-            code.append(String.format(ASSERT_STMT, cond.getCode()) + EOL);
+        // add postconditions
+        for (SimpleCParser.EnsuresContext cond: peekMethodScope().getPostConditionsNodes()) {
+            NodeResult ensuresExpr = visit(cond);
+            code.append(getGlobalAssertCondition(ensuresExpr.getCode().toString()) + EOL);
         }
 
         ScopeInfo scopeAfter = peekScope();
         popStack();
+        popMethodsStack();
 
         String resultCode = String.format(PROGRAM, code);
         return new NodeResult(new StringBuilder(resultCode), modSet, scopeAfter);
@@ -341,13 +352,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         StringBuilder code = new StringBuilder();
         // obtain result of the underlying expression
         NodeResult condExpr = visit(ctx.condition);
-
-        String condition = condExpr.getCode().toString();
-        String allConditions = combineConditions(getConditionsGlobal(), getAssumptionsGlobal());
-        if (!allConditions.isEmpty()) {
-            condition = String.format(IMPLICATION_STMT, allConditions, condition);
-        }
-        code.append(String.format(ASSERT_STMT, condition));
+        code.append(getGlobalAssertCondition(condExpr.getCode().toString()));
 
         return new NodeResult(code, new HashSet<>(), peekScope());
     }
