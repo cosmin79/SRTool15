@@ -429,6 +429,8 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
         }};
 
         String code = visit(ctx.arg);
+        // apply the unary operators right to left
+        Collections.reverse(ctx.ops);
         for (Token op: ctx.ops) {
             String unaryExpr = unaryOperatorToSSA.get(op.getText());
             code = String.format(unaryExpr, code);
