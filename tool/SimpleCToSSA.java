@@ -213,7 +213,8 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     private String latestVarRef(String name) {
-        return String.format(VAR_ID, name, latestVarId(name));
+        Integer latestId = latestVarId(name);
+        return latestId != null ? String.format(VAR_ID, name, latestId) : null;
     }
 
     private String getFromGivenScopeOrGlobal(ScopeInfo givenScope, String name) {
@@ -404,16 +405,22 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         pushStack();
         for (SimpleCParser.StmtContext stmt: ctx.stmts) {
             NodeResult stmtResult = visit(stmt);
-            if (stmtResult != null) {
-                code.append(stmtResult.getCode() + EOL);
-                modSet.addAll(stmtResult.getModSet());
-            }
+            code.append(stmtResult.getCode() + EOL);
+            modSet.addAll(stmtResult.getModSet());
         }
         // scope at the end of block statement
         ScopeInfo scopeAfter = peekScope();
         popStack();
 
         return new NodeResult(code, modSet, scopeAfter);
+    }
+
+    private String generateNewIfValue(String cond, String thenValue, String elseValue) {
+        // make sure the value is not null for the then and else cases
+        thenValue = thenValue != null ? thenValue : elseValue;
+        elseValue = elseValue != null ? elseValue : thenValue;
+
+        return String.format("%s ? %s : %s", cond, thenValue, elseValue);
     }
 
     @Override
@@ -434,7 +441,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         // evaluate else branch
         if (ctx.elseBlock != null) {
             pushStack();
-            addConditionToScope(String.format("!%s", conditionResult.getCode().toString()));
+            addConditionToScope(String.format("!(%s)", conditionResult.getCode().toString()));
             elseResult = visit(ctx.elseBlock);
             modSet.addAll(elseResult.getModSet());
             code.append(elseResult.getCode().toString());
@@ -447,8 +454,9 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
             String thenValue = getFromGivenScopeOrGlobal(thenResult.latestScope, modifiedVar);
             // get value from else branch
             String elseValue = getFromGivenScopeOrGlobal(elseResult.latestScope, modifiedVar);
+
             // new value of variable
-            String newExpr = String.format("%s ? %s : %s", conditionResult.getCode().toString(), thenValue, elseValue);
+            String newExpr = generateNewIfValue(conditionResult.getCode().toString(), thenValue, elseValue);
 
             // generate new label for variable
             addVariableToScope(modifiedVar);
@@ -481,6 +489,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
+    // TODO(ccarabet): add paranthesis at the end
     public NodeResult visitTernExpr(SimpleCParser.TernExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
@@ -499,8 +508,9 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
             modSet.addAll(currChild.getModSet());
             modSet.addAll(nextChild.getModSet());
         }
+        String result = String.format("(%s)", code.toString());
 
-        return new NodeResult(code, modSet, peekScope());
+        return new NodeResult(new StringBuilder(result), modSet, peekScope());
     }
 
     /**
@@ -522,8 +532,9 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
             code.append(String.format(" %s %s", currToken.next().getText(), currChild.getCode()));
             modSet.addAll(currChild.getModSet());
         }
+        String result = String.format("(%s)", code.toString());
 
-        return new NodeResult(code, modSet, peekScope());
+        return new NodeResult(new StringBuilder(result), modSet, peekScope());
     }
 
     @Override
