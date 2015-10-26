@@ -22,6 +22,15 @@ public class SRTool {
 
 	public static void main(String[] args) throws IOException, InterruptedException {
         String filename = args[0];
+		// useful abstraction for debug prints
+		DEBUG_LEVEL debugLevel;
+		if (args.length >= 2) {
+			debugLevel = Boolean.parseBoolean(args[1]) ? DEBUG_LEVEL.TESTING : DEBUG_LEVEL.PROD;
+		} else {
+			debugLevel = DEBUG_LEVEL.PROD;
+		}
+		DebugUtil debugUtil = new DebugUtil(debugLevel);
+
 		ANTLRInputStream input = new ANTLRInputStream(new FileInputStream(filename));
         SimpleCLexer lexer = new SimpleCLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
@@ -55,7 +64,7 @@ public class SRTool {
 		//assert ctx.procedures.size() == 1; // For Part 1 of the coursework, this can be assumed
 		// Check each procedure by applying summarisation techniques for any method calls
 		for(ProcedureDeclContext proc : ctx.procedures) {
-			VCGenerator vcgen = new VCGenerator(proc, globalsStack, idsGenerator);
+			VCGenerator vcgen = new VCGenerator(proc, globalsStack, idsGenerator, debugUtil);
 			String vc = vcgen.generateVC().toString();
 
 			ProcessExec process = new ProcessExec("./z3", "-smt2", "-in");

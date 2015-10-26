@@ -29,6 +29,8 @@ def runTests(expectedOuput, tests) :
     for test in failedTests :
       print test
 
+subprocess.call(["make"]);
+
 correctTests   = map(partial(appendSuffix, correctSuffix), listdir(correctSuffix))
 incorrectTests = map(partial(appendSuffix, incorrectSuffix), listdir(incorrectSuffix))
 

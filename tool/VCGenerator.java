@@ -13,24 +13,27 @@ public class VCGenerator {
 	private ProcedureDeclContext proc;
 	private Map<String, Integer> globalsStack;
 	private VariableIdsGenerator idsGenerator;
+	private DebugUtil debugUtil;
 
 	private static final String VAR_ENTRY = "(declare-fun %s () (_ BitVec 32))\n";
 
 	public VCGenerator(ProcedureDeclContext proc,
 					   Map<String, Integer> globalsStack,
-					   VariableIdsGenerator idsGenerator) {
+					   VariableIdsGenerator idsGenerator,
+					   DebugUtil debugUtil) {
 		this.proc = proc;
 		this.globalsStack = globalsStack;
 		this.idsGenerator = idsGenerator;
+		this.debugUtil = debugUtil;
 	}
 	
 	public StringBuilder generateVC() {
 		// 1st step (Simple C -> SSA)
-		System.out.println("Translating method from Simple C -> Simple C SSA format\n");
+		debugUtil.print("Translating method from Simple C -> Simple C SSA format");
 		NodeResult methodResult = new SimpleCToSSA(globalsStack, idsGenerator).visit(proc);
-		System.out.println("Translation successful\n");
+		debugUtil.print("Translation successful\n");
 		String resultCode = methodResult.code.toString();
-		System.out.println(String.format("See the code below\n%s\n", resultCode));
+		debugUtil.print(String.format("See the code below\n%s\n", resultCode));
 
 		// 2nd step (SSA -> VC)
 		ANTLRInputStream input = new ANTLRInputStream(resultCode);
@@ -61,7 +64,7 @@ public class VCGenerator {
 
 		result.append("\n(check-sat)\n");
 
-		System.out.println("Returned SMT query:\n\n" + result.toString() + "\n");
+		debugUtil.print("Returned SMT query:\n\n" + result.toString() + "\n");
 		return result;
 	}
 
