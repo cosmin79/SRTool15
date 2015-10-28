@@ -1,8 +1,9 @@
 package tool;
-import java.io.BufferedWriter;
-import java.io.FileInputStream;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,19 +21,28 @@ public class SRTool {
 
     private static final int TIMEOUT = 30;
 
-	public static void main(String[] args) throws IOException, InterruptedException {
-        String filename = args[0];
-		// useful abstraction for debug prints
-		DEBUG_LEVEL debugLevel;
-		if (args.length >= 2) {
-			debugLevel = Boolean.parseBoolean(args[1]) ? DEBUG_LEVEL.TESTING : DEBUG_LEVEL.PROD;
-		} else {
-			debugLevel = DEBUG_LEVEL.PROD;
-		}
-		DebugUtil debugUtil = new DebugUtil(debugLevel);
+	private static String readFile(String path, Charset encoding) throws IOException {
+		byte[] encoded = Files.readAllBytes(Paths.get(path));
+		return new String(encoded, encoding);
+	}
 
-		ANTLRInputStream input = new ANTLRInputStream(new FileInputStream(filename));
-        SimpleCLexer lexer = new SimpleCLexer(input);
+	private static String simpleCToNoVarShadowing(String programString) throws  IOException {
+		ANTLRInputStream input = new ANTLRInputStream(programString);
+		SimpleCLexer lexer = new SimpleCLexer(input);
+		CommonTokenStream tokens = new CommonTokenStream(lexer);
+		SimpleCParser parser = new SimpleCParser(tokens);
+		SimpleCParser.ProgramContext programCtx = parser.program();
+		if(parser.getNumberOfSyntaxErrors() > 0) {
+			System.exit(1);
+		}
+		String result = new SimpleCToNoShadowing(new VariableIdsGenerator()).visit(programCtx);
+
+		return result;
+	}
+
+	private static ProgramContext syntaxAndSemanticProgramCheck(String programString) {
+		ANTLRInputStream input = new ANTLRInputStream(programString);
+		SimpleCLexer lexer = new SimpleCLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 		SimpleCParser parser = new SimpleCParser(tokens);
 		ProgramContext ctx = parser.program();
@@ -44,12 +54,35 @@ public class SRTool {
 		tc.visit(ctx);
 		tc.resolve();
 		if(tc.hasErrors()) {
-			System.err.println("Errors were detected when typechecking " + filename + ":");
+			System.err.println("Errors were detected when typechecking the program:");
 			for(String err : tc.getErrors()) {
 				System.err.println("  " + err);
 			}
 			System.exit(1);
 		}
+
+		return ctx;
+	}
+
+	public static void main(String[] args) throws IOException, InterruptedException {
+		String fileContent = readFile(args[0], StandardCharsets.UTF_8);
+		ProgramContext ctx = syntaxAndSemanticProgramCheck(fileContent);
+
+		// useful abstraction for debug prints
+		DEBUG_LEVEL debugLevel;
+		if (args.length >= 2) {
+			debugLevel = Boolean.parseBoolean(args[1]) ? DEBUG_LEVEL.TESTING : DEBUG_LEVEL.PROD;
+		} else {
+			debugLevel = DEBUG_LEVEL.PROD;
+		}
+		DebugUtil debugUtil = new DebugUtil(debugLevel);
+
+		debugUtil.print("Preparing to apply 1st transformation that removes variable shadowing");
+		String simpleCNoVarShadowingProgram = simpleCToNoVarShadowing(fileContent);
+
+		debugUtil.print("Result:\n" + simpleCNoVarShadowingProgram);
+		debugUtil.print("Make sure the program is still correct from a syntactic and semantic point of view");
+		ctx = syntaxAndSemanticProgramCheck(simpleCNoVarShadowingProgram);
 
 		// create a new handler for variable ids that is going to be shared across classes
 		VariableIdsGenerator idsGenerator = new VariableIdsGenerator();

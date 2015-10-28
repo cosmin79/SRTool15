@@ -489,7 +489,6 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    // TODO(ccarabet): add paranthesis at the end
     public NodeResult visitTernExpr(SimpleCParser.TernExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
