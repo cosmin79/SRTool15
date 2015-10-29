@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python runTesT.py -c . -t $@
+java -cp .:antlr-4.5.1-complete.jar tool.SRTool $@

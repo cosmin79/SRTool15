@@ -166,15 +166,16 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             childrenResults.add(visit(child));
         }
 
+        Collections.reverse(childrenResults);
         String cond = "(ite (tobool %s) %s %s)";
-        String code = childrenResults.get(0);
+        String rhsChild = childrenResults.get(0);
         for (int i = 1; i < childrenResults.size(); i += 2) {
-            String currChild = childrenResults.get(i);
-            String nextChild = childrenResults.get(i + 1);
-            code = String.format(cond, code.toString(), currChild, nextChild);
+            String lhsChild = childrenResults.get(i);
+            String condChild = childrenResults.get(i + 1);
+            rhsChild = String.format(cond, condChild, lhsChild, rhsChild);
         }
 
-        return code;
+        return rhsChild;
     }
 
     @Override
