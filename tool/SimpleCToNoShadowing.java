@@ -57,6 +57,8 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
 
     private static final String RESULT_EXPR = "\\result";
 
+    private static final String OLD_EXPR = "\\old(%s)";
+
     private VariableIdsGenerator freshIds;
 
     private List<Map<String, Integer>> scopesStack;
@@ -305,7 +307,7 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
             String nextChild = childrenResults.get(i + 1);
             code.append(String.format("? %s : %s ", currChild, nextChild));
         }
-        String result = String.format("(%s)", code.toString());
+        String result = String.format("%s", code.toString());
 
         return result;
     }
@@ -326,7 +328,7 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
         for (int i = 1; i < childrenResults.size(); i++) {
             code.append(String.format(" %s %s", currToken.next().getText(), childrenResults.get(i)));
         }
-        String result = String.format("(%s)", code.toString());
+        String result = String.format("%s", code.toString());
 
         return result;
     }
@@ -464,7 +466,8 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
     @Override
     public String visitOldExpr(SimpleCParser.OldExprContext ctx) {
         String varName = ctx.arg.ident.name.getText();
-        return String.format(VAR_ID, ctx.arg.ident.name.getText(), globalVariables.get(varName));
+        String newOldVar = String.format(VAR_ID, ctx.arg.ident.name.getText(), globalVariables.get(varName));
+        return String.format(OLD_EXPR, newOldVar);
     }
 
     @Override
