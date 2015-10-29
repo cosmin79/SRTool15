@@ -201,7 +201,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         assumptions.add(condition);
     }
 
-    private Integer latestVarId(String name) {
+    private Integer latesVarIdtFromGiveScopesStack(String name, List<ScopeInfo> scopesStack) {
         for (ScopeInfo scope: scopesStack) {
             Integer valueForVar = scope.getVariable(name);
             if (valueForVar != null) {
@@ -210,6 +210,10 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         }
 
         return null;
+    }
+
+    private Integer latestVarId(String name) {
+        return latesVarIdtFromGiveScopesStack(name, scopesStack);
     }
 
     private String latestVarRef(String name) {
@@ -403,11 +407,21 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         Set<String> modSet = new HashSet<>();
 
         pushStack();
+        List<ScopeInfo> scopesStatements = new LinkedList<>();
         for (SimpleCParser.StmtContext stmt: ctx.stmts) {
             NodeResult stmtResult = visit(stmt);
             code.append(stmtResult.getCode() + EOL);
             modSet.addAll(stmtResult.getModSet());
+            scopesStatements.add(0, stmtResult.latestScope);
         }
+
+        // save modified variables
+        for (String var: modSet) {
+            Integer latestRef = latesVarIdtFromGiveScopesStack(var, scopesStatements);
+            addVariableToScope(var);
+            code.append(String.format(ASSIGN_STMT, latestVarRef(var), String.format(VAR_ID, var, latestRef)));
+        }
+
         // scope at the end of block statement
         ScopeInfo scopeAfter = peekScope();
         popStack();
@@ -469,13 +483,9 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     @Override
     public NodeResult visitVarIdentifier(SimpleCParser.VarIdentifierContext ctx) {
         StringBuilder code = new StringBuilder();
-        Set<String> modSet = new HashSet<>();
+        code.append(latestVarRef(ctx.getText()));
 
-        String name = ctx.getText();
-        code.append(latestVarRef(name));
-        modSet.add(name);
-
-        return new NodeResult(code, modSet, peekScope());
+        return new NodeResult(code, new HashSet<>(), peekScope());
     }
 
     @Override
@@ -499,17 +509,14 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         }
 
         StringBuilder code = new StringBuilder(childrenResults.get(0).getCode());
-        Set<String> modSet = new HashSet<>(childrenResults.get(0).getModSet());
         for (int i = 1; i < childrenResults.size(); i += 2) {
             NodeResult currChild = childrenResults.get(i);
             NodeResult nextChild = childrenResults.get(i + 1);
             code.append(String.format("? %s : %s ", currChild.getCode(), nextChild.getCode()));
-            modSet.addAll(currChild.getModSet());
-            modSet.addAll(nextChild.getModSet());
         }
         String result = String.format("(%s)", code.toString());
 
-        return new NodeResult(new StringBuilder(result), modSet, peekScope());
+        return new NodeResult(new StringBuilder(result), new HashSet<>(), peekScope());
     }
 
     /**
@@ -524,16 +531,14 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         }
 
         StringBuilder code = new StringBuilder(childrenResults.get(0).getCode());
-        Set<String> modSet = new HashSet<>(childrenResults.get(0).getModSet());
         Iterator<Token> currToken = sep.iterator();
         for (int i = 1; i < childrenResults.size(); i++) {
             NodeResult currChild = childrenResults.get(i);
             code.append(String.format(" %s %s", currToken.next().getText(), currChild.getCode()));
-            modSet.addAll(currChild.getModSet());
         }
         String result = String.format("(%s)", code.toString());
 
-        return new NodeResult(new StringBuilder(result), modSet, peekScope());
+        return new NodeResult(new StringBuilder(result), new HashSet<>(), peekScope());
     }
 
     @Override
@@ -629,9 +634,8 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
         NodeResult child = visit(ctx.arg);
         code.append(child.getCode());
-        Set<String> modSet = new HashSet<>(child.getModSet());
 
-        return new NodeResult(code, modSet, peekScope());
+        return new NodeResult(code, new HashSet<>(), peekScope());
     }
 
     @Override
@@ -655,7 +659,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         NodeResult child = visit(ctx.arg);
         String newCode = String.format("(%s)", child.getCode());
 
-        return new NodeResult(new StringBuilder(newCode), new HashSet<>(child.getModSet()), peekScope());
+        return new NodeResult(new StringBuilder(newCode), new HashSet<>(), peekScope());
     }
 
     @Override
