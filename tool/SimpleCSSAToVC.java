@@ -21,7 +21,12 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
     private static final String EOL = "\n";
     private static final String ASSIGN_STMT = "(assert (= %s %s))\n";
 
-    private List<String> assertConditions = new ArrayList<>();
+    private List<String> assertConditions;
+
+    public SimpleCSSAToVC() {
+        assertConditions = new ArrayList<>();
+        assertConditions.add("(_ bv1 32)");
+    }
 
     @Override
     public String visitProgram(SimpleCParser.ProgramContext ctx) {
@@ -403,7 +408,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
         Map<String, String> mulDivModOperatorToSSA = new HashMap<String, String>() {{
             put("*", "(bvmul %s %s)");
             put("/", "(bvdiv %s %s)");
-            put("%", "(bvsmod %s %s)");
+            put("%", "(bvsrem %s %s)");
         }};
 
         Iterator<Token> currToken = ctx.ops.iterator();
