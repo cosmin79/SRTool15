@@ -609,7 +609,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
         StringBuilder code = new StringBuilder();
         for (Token op: ctx.ops) {
-            code.append(op.getText());
+            code.append(op.getText() + " ");
         }
 
         NodeResult child = visit(ctx.arg);

@@ -431,7 +431,7 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
 
         StringBuilder code = new StringBuilder();
         for (Token op: ctx.ops) {
-            code.append(op.getText());
+            code.append(op.getText() + " ");
         }
         code.append(visit(ctx.arg));
 
