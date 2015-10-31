@@ -7,6 +7,11 @@ import parser.SimpleCParser;
 
 import java.util.*;
 
+enum ArgType {
+    INT,
+    BOOLEAN;
+}
+
 /**
  * We assume that this visitor is used for a SimpleC program with the following structure:
  *
@@ -19,28 +24,78 @@ import java.util.*;
 public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
 
     private static final String EOL = "\n";
+
     private static final String ASSIGN_STMT = "(assert (= %s %s))\n";
+
+    private static final String TRUE_EXPR = "(_ bv1 32)";
+
+    private static final String AND_EXPR = "(and %s %s)";
+
+    private static final String TO_BOOL_EXPR = "(tobool %s)";
+
+    private static final String TO_INT_EXPR = "(tobv32 %s)";
+
+    private static final String TERN_EXPR = "(ite (tobool %s) %s %s)";
+
+    private static final String NUMBER = "(_ bv%s 32)";
+
+    // mapping from a binary operator to the right SMT expression
+    private final Map<String, String> operatorsMap = new HashMap<String, String>() {{
+        put("||", "(or %s %s)");
+        put("&&", "(and %s %s)");
+
+        put("|", "(bvor %s %s)");
+        put("^", "(bvxor %s %s)");
+        put("&", "(bvand %s %s)");
+
+        put("==", "(= %s %s)");
+        put("!=", "(not (= %s %s))");
+
+        put("<", "(bvslt %s %s)");
+        put("<=", "(bvsle %s %s)");
+        put(">", "(bvsgt %s %s)");
+        put(">=", "(bvsge %s %s)");
+
+        put("<<", "(bvshl %s %s)");
+        put(">>", "(bvashr %s %s)");
+
+        put("+", "(bvadd %s %s)");
+        put("-", "(bvsub %s %s)");
+
+        put("*", "(bvmul %s %s)");
+        put("/", "(bvdiv %s %s)");
+        put("%", "(bvsrem %s %s)");
+    }};
+
+    private static final Map<String, String> unaryOperatorsMap = new HashMap<String, String>() {{
+        put("+", "%s");
+        put("-", "(bvneg %s)");
+        put("!", String.format(TO_INT_EXPR, String.format("(not %s)", TO_BOOL_EXPR)));
+        put("~", "(bvnot %s)");
+    }};
+    // operators to expressions END
 
     private List<String> assertConditions;
 
     public SimpleCSSAToVC() {
         assertConditions = new ArrayList<>();
-        assertConditions.add("(_ bv1 32)");
+        assertConditions.add(TRUE_EXPR);
     }
 
     @Override
     public String visitProgram(SimpleCParser.ProgramContext ctx) {
-        StringBuilder code = new StringBuilder();
         assert (ctx.procedures.size() == 1);
+
+        StringBuilder code = new StringBuilder();
         for (SimpleCParser.ProcedureDeclContext proc: ctx.procedures) {
             code.append(visit(proc) + EOL);
         }
 
         if (!assertConditions.isEmpty()) {
-            String andExpr = "(and %s (tobool %s))";
-            String andAssertions = String.format("(tobool %s)", assertConditions.get(0));
+            String andAssertions = String.format(TO_BOOL_EXPR, assertConditions.get(0));
             for (int i = 1; i < assertConditions.size(); i++) {
-                andAssertions = String.format(andExpr, andAssertions, assertConditions.get(i));
+                String nextAssert = String.format(TO_BOOL_EXPR, assertConditions.get(i));
+                andAssertions = String.format(AND_EXPR, andAssertions, nextAssert);
             }
             code.append(String.format("(assert (not %s))", andAssertions) + EOL);
         }
@@ -53,40 +108,10 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
     public String visitProcedureDecl(SimpleCParser.ProcedureDeclContext ctx) {
         StringBuilder code = new StringBuilder();
         for (SimpleCParser.StmtContext stmt: ctx.stmt()) {
-            code.append(visit(stmt) + EOL);
+            code.append(visit(stmt));
         }
 
         return code.toString();
-    }
-
-    @Override
-    public String visitFormalParam(SimpleCParser.FormalParamContext ctx) {
-        return super.visitFormalParam(ctx);
-    }
-
-    @Override
-    public String visitPrepost(SimpleCParser.PrepostContext ctx) {
-        return super.visitPrepost(ctx);
-    }
-
-    @Override
-    public String visitRequires(SimpleCParser.RequiresContext ctx) {
-        return super.visitRequires(ctx);
-    }
-
-    @Override
-    public String visitEnsures(SimpleCParser.EnsuresContext ctx) {
-        return super.visitEnsures(ctx);
-    }
-
-    @Override
-    public String visitCandidateRequires(SimpleCParser.CandidateRequiresContext ctx) {
-        return super.visitCandidateRequires(ctx);
-    }
-
-    @Override
-    public String visitCandidateEnsures(SimpleCParser.CandidateEnsuresContext ctx) {
-        return super.visitCandidateEnsures(ctx);
     }
 
     @Override
@@ -107,31 +132,6 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
     }
 
     @Override
-    public String visitAssumeStmt(SimpleCParser.AssumeStmtContext ctx) {
-        return super.visitAssumeStmt(ctx);
-    }
-
-    @Override
-    public String visitHavocStmt(SimpleCParser.HavocStmtContext ctx) {
-        return super.visitHavocStmt(ctx);
-    }
-
-    @Override
-    public String visitCallStmt(SimpleCParser.CallStmtContext ctx) {
-        return super.visitCallStmt(ctx);
-    }
-
-    @Override
-    public String visitIfStmt(SimpleCParser.IfStmtContext ctx) {
-        return super.visitIfStmt(ctx);
-    }
-
-    @Override
-    public String visitWhileStmt(SimpleCParser.WhileStmtContext ctx) {
-        return super.visitWhileStmt(ctx);
-    }
-
-    @Override
     public String visitBlockStmt(SimpleCParser.BlockStmtContext ctx) {
         StringBuilder code = new StringBuilder();
         for (SimpleCParser.StmtContext stmt: ctx.stmts) {
@@ -142,45 +142,62 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
     }
 
     @Override
-    public String visitLoopInvariant(SimpleCParser.LoopInvariantContext ctx) {
-        return super.visitLoopInvariant(ctx);
-    }
-
-    @Override
-    public String visitInvariant(SimpleCParser.InvariantContext ctx) {
-        return super.visitInvariant(ctx);
-    }
-
-    @Override
-    public String visitCandidateInvariant(SimpleCParser.CandidateInvariantContext ctx) {
-        return super.visitCandidateInvariant(ctx);
-    }
-
-    @Override
-    public String visitExpr(SimpleCParser.ExprContext ctx) {
-        return visit(ctx.ternExpr());
-    }
-
-    @Override
     public String visitTernExpr(SimpleCParser.TernExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
+
         List<String> childrenResults = new ArrayList<>();
         for (SimpleCParser.LorExprContext child: ctx.args) {
             childrenResults.add(visit(child));
         }
 
         Collections.reverse(childrenResults);
-        String cond = "(ite (tobool %s) %s %s)";
         String rhsChild = childrenResults.get(0);
         for (int i = 1; i < childrenResults.size(); i += 2) {
             String lhsChild = childrenResults.get(i);
             String condChild = childrenResults.get(i + 1);
-            rhsChild = String.format(cond, condChild, lhsChild, rhsChild);
+            rhsChild = String.format(TERN_EXPR, condChild, lhsChild, rhsChild);
         }
 
         return rhsChild;
+    }
+
+    private String castFromTo(String expr, ArgType from, ArgType to) {
+        if (from == to) {
+            return expr;
+        } else if (to == ArgType.BOOLEAN) {
+            return String.format(TO_BOOL_EXPR, expr);
+        }
+
+        return String.format(TO_INT_EXPR, expr);
+    }
+
+    /**
+     *
+     * @param nodes list of expression nodes f
+     * @param tokens a list of operators in the form of tokens to be applied in order for the given expressions
+     * @param opArgsType expected arguments type (int or bool) for the binary operation
+     * @param opRetType the type (int or bool) the binary expression returns
+     * @param <T> expression type
+     * @return an integer expression containing the given operator applied between every 2 consecutive expressions
+     */
+    private<T extends ParserRuleContext> String processBinaryExpr(List<T> nodes, List<Token> tokens,
+                                                                  ArgType opArgsType, ArgType opRetType) {
+        List<String> childrenResults = new ArrayList<>();
+        for (T child: nodes) {
+            childrenResults.add(visit(child));
+        }
+
+        String result = castFromTo(childrenResults.get(0), ArgType.INT, opArgsType);
+        Iterator<Token> currToken = tokens.iterator();
+        for (int idx = 1; idx < childrenResults.size(); idx++) {
+            String binaryExpr = operatorsMap.get(currToken.next().getText());
+            String nextChild = castFromTo(childrenResults.get(idx), ArgType.INT, opArgsType);
+            result = castFromTo(String.format(binaryExpr, result, nextChild), opRetType, opArgsType);
+        }
+
+        return castFromTo(result, opArgsType, ArgType.INT);
     }
 
     @Override
@@ -189,19 +206,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        List<String> childrenResults = new ArrayList<>();
-        for (SimpleCParser.LandExprContext child: ctx.args) {
-            childrenResults.add(visit(child));
-        }
-
-        // i.e. (firstTerm secondTerm)
-        String orExpr = "(or %s (tobool %s))";
-        String code = String.format("(tobool %s)", childrenResults.get(0));
-        for (int i = 1; i < childrenResults.size(); i++) {
-            code = String.format(orExpr, code, childrenResults.get(i));
-        }
-
-        return String.format("(tobv32 %s)", code);
+        return processBinaryExpr(ctx.args, ctx.ops, ArgType.BOOLEAN, ArgType.BOOLEAN);
     }
 
     @Override
@@ -210,19 +215,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        List<String> childrenResults = new ArrayList<>();
-        for (SimpleCParser.BorExprContext child: ctx.args) {
-            childrenResults.add(visit(child));
-        }
-
-        // i.e. (firstTerm secondTerm)
-        String andExpr = "(and %s (tobool %s))";
-        String code = String.format("(tobool %s)", childrenResults.get(0));
-        for (int i = 1; i < childrenResults.size(); i++) {
-            code = String.format(andExpr, code, childrenResults.get(i));
-        }
-
-        return String.format("(tobv32 %s)", code);
+        return processBinaryExpr(ctx.args, ctx.ops, ArgType.BOOLEAN, ArgType.BOOLEAN);
     }
 
     @Override
@@ -231,19 +224,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        List<String> childrenResults = new ArrayList<>();
-        for (SimpleCParser.BxorExprContext child: ctx.args) {
-            childrenResults.add(visit(child));
-        }
-
-        // i.e. (firstTerm secondTerm)
-        String bitwiseOrExpr = "(bvor %s %s)";
-        String code = childrenResults.get(0);
-        for (int i = 1; i < childrenResults.size(); i++) {
-            code = String.format(bitwiseOrExpr, code, childrenResults.get(i));
-        }
-
-        return code;
+        return processBinaryExpr(ctx.args, ctx.ops, ArgType.INT, ArgType.INT);
     }
 
     @Override
@@ -252,19 +233,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        List<String> childrenResults = new ArrayList<>();
-        for (SimpleCParser.BandExprContext child: ctx.args) {
-            childrenResults.add(visit(child));
-        }
-
-        // i.e. (firstTerm secondTerm)
-        String bitwiseXorExpr = "(bvxor %s %s)";
-        String code = childrenResults.get(0);
-        for (int i = 1; i < childrenResults.size(); i++) {
-            code = String.format(bitwiseXorExpr, code, childrenResults.get(i));
-        }
-
-        return code;
+        return processBinaryExpr(ctx.args, ctx.ops, ArgType.INT, ArgType.INT);
     }
 
     @Override
@@ -273,19 +242,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        List<String> childrenResults = new ArrayList<>();
-        for (SimpleCParser.EqualityExprContext child: ctx.args) {
-            childrenResults.add(visit(child));
-        }
-
-        // i.e. (firstTerm secondTerm)
-        String bitwiseAndExpr = "(bvand %s %s)";
-        String code = childrenResults.get(0);
-        for (int i = 1; i < childrenResults.size(); i++) {
-            code = String.format(bitwiseAndExpr, code, childrenResults.get(i));
-        }
-
-        return code;
+        return processBinaryExpr(ctx.args, ctx.ops, ArgType.INT, ArgType.INT);
     }
 
     @Override
@@ -294,24 +251,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        List<String> childrenResults = new ArrayList<>();
-        for (SimpleCParser.RelExprContext child: ctx.args) {
-            childrenResults.add(visit(child));
-        }
-
-        Map<String, String> equalityOperatorToSSA = new HashMap<String, String>() {{
-           put("==", "(tobv32 (= %s %s))");
-           put("!=", "(tobv32 (not (= %s %s)))");
-        }};
-
-        Iterator<Token> currToken = ctx.ops.iterator();
-        String code = childrenResults.get(0);
-        for (int i = 1; i < childrenResults.size(); i++) {
-            String equalityExpr = equalityOperatorToSSA.get(currToken.next().getText());
-            code = String.format(equalityExpr, code, childrenResults.get(i));
-        }
-
-        return code;
+        return processBinaryExpr(ctx.args, ctx.ops, ArgType.INT, ArgType.BOOLEAN);
     }
 
     @Override
@@ -320,26 +260,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        List<String> childrenResults = new ArrayList<>();
-        for (SimpleCParser.ShiftExprContext child: ctx.args) {
-            childrenResults.add(visit(child));
-        }
-
-        Map<String, String> relOperatorToSSA = new HashMap<String, String>() {{
-            put("<", "(tobv32 (bvslt %s %s))");
-            put("<=", "(tobv32 (bvsle %s %s))");
-            put(">", "(tobv32 (bvsgt %s %s))");
-            put(">=", "(tobv32 (bvsge %s %s))");
-        }};
-
-        Iterator<Token> currToken = ctx.ops.iterator();
-        String code = childrenResults.get(0);
-        for (int i = 1; i < childrenResults.size(); i++) {
-            String equalityExpr = relOperatorToSSA.get(currToken.next().getText());
-            code = String.format(equalityExpr, code, childrenResults.get(i));
-        }
-
-        return code;
+        return processBinaryExpr(ctx.args, ctx.ops, ArgType.INT, ArgType.BOOLEAN);
     }
 
     @Override
@@ -348,24 +269,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        List<String> childrenResults = new ArrayList<>();
-        for (SimpleCParser.AddExprContext child: ctx.args) {
-            childrenResults.add(visit(child));
-        }
-
-        Map<String, String> shiftOperatorToSSA = new HashMap<String, String>() {{
-            put("<<", "(bvshl %s %s)");
-            put(">>", "(bvashr %s %s)");
-        }};
-
-        Iterator<Token> currToken = ctx.ops.iterator();
-        String code = childrenResults.get(0);
-        for (int i = 1; i < childrenResults.size(); i++) {
-            String equalityExpr = shiftOperatorToSSA.get(currToken.next().getText());
-            code = String.format(equalityExpr, code, childrenResults.get(i));
-        }
-
-        return code;
+        return processBinaryExpr(ctx.args, ctx.ops, ArgType.INT, ArgType.INT);
     }
 
     @Override
@@ -374,24 +278,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        List<String> childrenResults = new ArrayList<>();
-        for (SimpleCParser.MulExprContext child: ctx.args) {
-            childrenResults.add(visit(child));
-        }
-
-        Map<String, String> addSubOperatorToSSA = new HashMap<String, String>() {{
-            put("+", "(bvadd %s %s)");
-            put("-", "(bvsub %s %s)");
-        }};
-
-        Iterator<Token> currToken = ctx.ops.iterator();
-        String code = childrenResults.get(0);
-        for (int i = 1; i < childrenResults.size(); i++) {
-            String equalityExpr = addSubOperatorToSSA.get(currToken.next().getText());
-            code = String.format(equalityExpr, code, childrenResults.get(i));
-        }
-
-        return code;
+        return processBinaryExpr(ctx.args, ctx.ops, ArgType.INT, ArgType.INT);
     }
 
     @Override
@@ -400,25 +287,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        List<String> childrenResults = new ArrayList<>();
-        for (SimpleCParser.UnaryExprContext child: ctx.args) {
-            childrenResults.add(visit(child));
-        }
-
-        Map<String, String> mulDivModOperatorToSSA = new HashMap<String, String>() {{
-            put("*", "(bvmul %s %s)");
-            put("/", "(bvdiv %s %s)");
-            put("%", "(bvsrem %s %s)");
-        }};
-
-        Iterator<Token> currToken = ctx.ops.iterator();
-        String code = childrenResults.get(0);
-        for (int i = 1; i < childrenResults.size(); i++) {
-            String equalityExpr = mulDivModOperatorToSSA.get(currToken.next().getText());
-            code = String.format(equalityExpr, code, childrenResults.get(i));
-        }
-
-        return code;
+        return processBinaryExpr(ctx.args, ctx.ops, ArgType.INT, ArgType.INT);
     }
 
     @Override
@@ -427,35 +296,20 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
             return visit(ctx.single);
         }
 
-        Map<String, String> unaryOperatorToSSA = new HashMap<String, String>() {{
-            put("+", "%s");
-            put("-", "(bvneg %s)");
-            put("!", "(tobv32 (not (tobool %s)))");
-            put("~", "(bvnot %s)");
-        }};
-
-        String code = visit(ctx.arg);
+        String expr = visit(ctx.arg);
         // apply the unary operators right to left
         Collections.reverse(ctx.ops);
         for (Token op: ctx.ops) {
-            String unaryExpr = unaryOperatorToSSA.get(op.getText());
-            code = String.format(unaryExpr, code);
+            String unaryExpr = unaryOperatorsMap.get(op.getText());
+            expr = String.format(unaryExpr, expr);
         }
 
-        return code;
-    }
-
-    @Override
-    public String visitAtomExpr(SimpleCParser.AtomExprContext ctx) {
-        // it does seem to have only one child
-        return visit(ctx.getChild(0));
+        return expr;
     }
 
     @Override
     public String visitNumberExpr(SimpleCParser.NumberExprContext ctx) {
-        String noFormat = "(_ bv%s 32)";
-
-        return String.format(noFormat, ctx.number.getText());
+        return String.format(NUMBER, ctx.number.getText());
     }
 
     @Override
@@ -465,19 +319,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
 
     @Override
     public String visitParenExpr(SimpleCParser.ParenExprContext ctx) {
-        String childResult = visit(ctx.arg);
-
-        return String.format("%s", childResult);
-    }
-
-    @Override
-    public String visitResultExpr(SimpleCParser.ResultExprContext ctx) {
-        return super.visitResultExpr(ctx);
-    }
-
-    @Override
-    public String visitOldExpr(SimpleCParser.OldExprContext ctx) {
-        return super.visitOldExpr(ctx);
+        return visit(ctx.arg);
     }
 
     @Override

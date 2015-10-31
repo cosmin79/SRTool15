@@ -143,7 +143,7 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
         if (listNodes != null && !listNodes.isEmpty()) {
             code.append(visit(listNodes.get(0)));
             for (int idx = 1; idx < listNodes.size(); idx++) {
-                code.append(sep + " " + visit(listNodes.get(idx)));
+                code.append(sep + SPACE + visit(listNodes.get(idx)));
             }
         }
 
@@ -245,8 +245,7 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
         // evaluate else branch
         if (ctx.elseBlock != null) {
             pushStack();
-            elseResult = visit(ctx.elseBlock);
-            code.append(String.format(IF_ELSE_STMT, elseResult));
+            code.append(String.format(IF_ELSE_STMT, visit(ctx.elseBlock)));
             popStack();
         }
 
@@ -431,7 +430,7 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
 
         StringBuilder code = new StringBuilder();
         for (Token op: ctx.ops) {
-            code.append(op.getText() + " ");
+            code.append(op.getText() + SPACE);
         }
         code.append(visit(ctx.arg));
 
