@@ -4,7 +4,7 @@ package tool;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import parser.SimpleCBaseVisitor;
-import parser.SimpleCParser;
+import parser.SimpleCParser.*;
 
 import java.util.*;
 
@@ -30,88 +30,6 @@ class NodeResult {
     public Set<String> getModSet() {
         return modSet;
     }
-};
-
-class ScopeInfo {
-
-    private Map<String, Integer> variables;
-
-    private List<String> conditions;
-
-    public ScopeInfo() {
-        variables = new HashMap<>();
-        conditions = new LinkedList<>();
-    }
-
-    public ScopeInfo(Map<String, Integer> variables) {
-        this.variables = variables;
-        conditions = new LinkedList<>();
-    }
-
-    public Map<String, Integer> getVariables() {
-        return variables;
-    }
-
-    public List<String> getConditions() {
-        return conditions;
-    }
-
-    public Integer getVariable(String name) {
-        return variables.get(name);
-    }
-
-    public void addVariable(String name, Integer id) {
-        variables.put(name, id);
-    }
-
-    public void addCondition(String cond) {
-        conditions.add(cond);
-    }
-}
-
-class MethodScope {
-
-    private SimpleCParser.ProcedureDeclContext procedureNode;
-
-    private Map<String, Integer> globalsValue;
-
-    private List<SimpleCParser.RequiresContext> preConditionsNodes;
-
-    private List<SimpleCParser.EnsuresContext> postConditionsNodes;
-
-    private SimpleCParser.ExprContext returnStmt;
-
-    public MethodScope(SimpleCParser.ProcedureDeclContext ctx, Map<String, Integer> globalsValue) {
-        procedureNode = ctx;
-        this.globalsValue = globalsValue;
-        returnStmt = ctx.returnExpr;
-        preConditionsNodes = new LinkedList<>();
-        postConditionsNodes = new LinkedList<>();
-
-        for (SimpleCParser.PrepostContext cond: ctx.contract) {
-            if (cond.requires() != null) {
-                preConditionsNodes.add(cond.requires());
-            } else if (cond.ensures() != null) {
-                postConditionsNodes.add(cond.ensures());
-            }
-        }
-    }
-
-    public Integer getGlobalValueAtEntry(String varName) {
-        return globalsValue.get(varName);
-    }
-
-    public List<SimpleCParser.RequiresContext> getPreConditionsNodes() {
-        return preConditionsNodes;
-    }
-
-    public List<SimpleCParser.EnsuresContext> getPostConditionsNodes() {
-        return postConditionsNodes;
-    }
-
-    public SimpleCParser.ExprContext getReturnStmt() {
-        return returnStmt;
-    }
 }
 
 /**
@@ -132,213 +50,68 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
 
     private static final String IMPLICATION_STMT = "!(%s) || %s";
 
-    private List<String> globalVariables;
-
-    private List<ScopeInfo> scopesStack;
-
-    private List<MethodScope> methodScopesStack;
-
-    private List<String> assumptions;
-
-    private VariableIdsGenerator freshIds;
+    private ScopesHandler scopesHandler;
 
     public SimpleCToSSA(Map<String, Integer> globals, VariableIdsGenerator freshIds) {
-        globalVariables = new LinkedList<>(globals.keySet());
-
-        scopesStack = new LinkedList<>();
-        scopesStack.add(0, new ScopeInfo(globals));
-
-        this.freshIds = freshIds;
-        methodScopesStack = new LinkedList<>();
-        assumptions = new LinkedList<>();
+        scopesHandler = new ScopesHandler(globals, freshIds);
     }
-
-    // HELPER methods for scope related stuff - BEGIN
-    private ScopeInfo peekScope() {
-        return scopesStack.get(0);
-    }
-
-    private MethodScope peekMethodScope() {
-        return methodScopesStack.get(0);
-    }
-
-    private ScopeInfo popStack() {
-        return scopesStack.remove(0);
-    }
-
-    private void popMethodsStack() {
-        methodScopesStack.remove(0);
-    }
-
-    private void pushStack() {
-        scopesStack.add(0, new ScopeInfo());
-    }
-
-    private void pushMethodStack(MethodScope method) {
-        methodScopesStack.add(0, method);
-    }
-
-    private void addVariableToScope(String name) {
-        Integer newId = freshIds.generateFresh(name);
-        peekScope().addVariable(name, newId);
-    }
-
-    private void addConditionToScope(String condition) {
-        peekScope().addCondition(condition);
-    }
-
-    private void addAssumption(String condition) {
-        String conditionGlobals = getConditionsGlobal();
-        if (!conditionGlobals.isEmpty()) {
-            condition = String.format(IMPLICATION_STMT, getConditionsGlobal(), condition);
-        }
-        assumptions.add(condition);
-    }
-
-    private Integer latesVarIdtFromGiveScopesStack(String name, List<ScopeInfo> scopesStack) {
-        for (ScopeInfo scope: scopesStack) {
-            Integer valueForVar = scope.getVariable(name);
-            if (valueForVar != null) {
-                return valueForVar;
-            }
-        }
-
-        return null;
-    }
-
-    private Integer latestVarId(String name) {
-        return latesVarIdtFromGiveScopesStack(name, scopesStack);
-    }
-
-    private String latestVarRef(String name) {
-        Integer latestId = latestVarId(name);
-        return latestId != null ? String.format(VAR_ID, name, latestId) : null;
-    }
-
-    private String getFromGivenScopeOrGlobal(ScopeInfo givenScope, String name) {
-        Integer latestId = givenScope.getVariable(name);
-        String result;
-        if (latestId == null) {
-            result = latestVarRef(name);
-        } else {
-            result = String.format(VAR_ID, name, latestId);
-        }
-
-        return result;
-    }
-
-    private String combineConditions(String cond1, String cond2) {
-        if (cond1.isEmpty()) {
-            return cond2;
-        } else if (cond2.isEmpty()) {
-            return cond1;
-        }
-
-        return String.format("%s && %s", cond1, cond2);
-    }
-
-    private String andConditions(List<String> conditions) {
-        String result = "";
-        for (String condition: conditions) {
-            result = combineConditions(result, condition);
-        }
-
-        return result;
-    }
-
-    private String getConditionsGlobal() {
-        List<String> allConds = new ArrayList<>();
-        for (ScopeInfo scope: scopesStack) {
-            for (String cond: scope.getConditions()) {
-                allConds.add(cond);
-            }
-        }
-
-        return andConditions(allConds);
-    }
-
-    private String getAssumptionsGlobal() {
-        return andConditions(assumptions);
-    }
-
-    private String getGlobalAssertCondition(String condition) {
-        String allConditions = combineConditions(getConditionsGlobal(), getAssumptionsGlobal());
-        if (!allConditions.isEmpty()) {
-            condition = String.format(IMPLICATION_STMT, allConditions, condition);
-        }
-
-        return String.format(ASSERT_STMT, condition);
-    }
-
-    private SimpleCParser.ExprContext getEnclosingrMethodReturnStmt() {
-        return peekMethodScope().getReturnStmt();
-    }
-
-    private Map<String, Integer> globalsValueAtEntry() {
-        Map<String, Integer> globalsValues = new HashMap<>();
-        for (String globalVar: globalVariables) {
-            globalsValues.put(globalVar, latestVarId(globalVar));
-        }
-
-        return globalsValues;
-    }
-    // HELPER methods for scope related stuff - END
 
     @Override
-    public NodeResult visitEnsures(SimpleCParser.EnsuresContext ctx) {
+    public NodeResult visitEnsures(EnsuresContext ctx) {
         return visit(ctx.condition);
     }
 
     @Override
-    public NodeResult visitRequires(SimpleCParser.RequiresContext ctx) {
+    public NodeResult visitRequires(RequiresContext ctx) {
         return visit(ctx.condition);
     }
 
     @Override
-    public NodeResult visitProcedureDecl(SimpleCParser.ProcedureDeclContext ctx) {
+    public NodeResult visitProcedureDecl(ProcedureDeclContext ctx) {
         StringBuilder code = new StringBuilder();
         Set<String> modSet = new HashSet<>();
 
-        pushStack();
-        pushMethodStack(new MethodScope(ctx, globalsValueAtEntry()));
+        scopesHandler.pushStack();
+        scopesHandler.pushMethodStack(ctx);
 
         // add parameters to current stack
         if (ctx.formals != null) {
-            for (SimpleCParser.FormalParamContext param: ctx.formals) {
-                addVariableToScope(param.ident.name.getText());
+            for (FormalParamContext param: ctx.formals) {
+                scopesHandler.addVariable(param.ident.name.getText());
             }
         }
 
         // add preconditions
-        for (SimpleCParser.RequiresContext assumption: peekMethodScope().getPreConditionsNodes()) {
+        for (RequiresContext assumption: scopesHandler.getEnclosingMethodPreconditions()) {
             NodeResult assumptionExpr = visit(assumption);
-            addAssumption(assumptionExpr.getCode().toString());
+            scopesHandler.addAssumption(assumptionExpr.getCode().toString());
         }
 
         // visit method body
-        for (SimpleCParser.StmtContext stmt: ctx.stmt()) {
+        for (StmtContext stmt: ctx.stmt()) {
             NodeResult stmtResult = visit(stmt);
             code.append(stmtResult.getCode() + EOL);
             modSet.addAll(stmtResult.getModSet());
         }
 
         // add postconditions
-        for (SimpleCParser.EnsuresContext cond: peekMethodScope().getPostConditionsNodes()) {
+        for (EnsuresContext cond: scopesHandler.getEnclosingMethodPostconditions()) {
             NodeResult ensuresExpr = visit(cond);
-            code.append(getGlobalAssertCondition(ensuresExpr.getCode().toString()) + EOL);
+            code.append(String.format(ASSERT_STMT,
+                    scopesHandler.generateCondition(ensuresExpr.getCode().toString())));
         }
 
-        popStack();
-        popMethodsStack();
+        scopesHandler.popStack();
+        scopesHandler.popMethodsStack();
 
         String resultCode = String.format(PROGRAM, code);
         return new NodeResult(new StringBuilder(resultCode), modSet);
     }
 
     @Override
-    public NodeResult visitVarDecl(SimpleCParser.VarDeclContext ctx) {
+    public NodeResult visitVarDecl(VarDeclContext ctx) {
         String varName = ctx.ident.name.getText();
-        addVariableToScope(varName);
+        scopesHandler.addVariable(varName);
 
         Set<String> modSet = new HashSet<>();
         modSet.add(varName);
@@ -347,7 +120,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitAssignStmt(SimpleCParser.AssignStmtContext ctx) {
+    public NodeResult visitAssignStmt(AssignStmtContext ctx) {
         StringBuilder code = new StringBuilder();
         Set<String> modSet = new HashSet<>();
 
@@ -355,8 +128,8 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         NodeResult rhsResult = visit(ctx.rhs);
         // create new variable entry
         String name = ctx.lhs.ident.name.getText();
-        addVariableToScope(name);
-        code.append(String.format(ASSIGN_STMT, latestVarRef(name), rhsResult.getCode()));
+        scopesHandler.addVariable(name);
+        code.append(String.format(ASSIGN_STMT, scopesHandler.latestVar(name), rhsResult.getCode()));
 
         // update modSet
         modSet.addAll(rhsResult.modSet);
@@ -366,19 +139,19 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitAssertStmt(SimpleCParser.AssertStmtContext ctx) {
+    public NodeResult visitAssertStmt(AssertStmtContext ctx) {
         StringBuilder code = new StringBuilder();
         // obtain result of the underlying expression
         NodeResult condExpr = visit(ctx.condition);
-        code.append(getGlobalAssertCondition(condExpr.getCode().toString()));
+        code.append(String.format(ASSERT_STMT, scopesHandler.generateCondition(condExpr.getCode().toString())));
 
         return new NodeResult(code, new HashSet<>());
     }
 
     @Override
-    public NodeResult visitHavocStmt(SimpleCParser.HavocStmtContext ctx) {
+    public NodeResult visitHavocStmt(HavocStmtContext ctx) {
         String varName = ctx.var.ident.name.getText();
-        addVariableToScope(varName);
+        scopesHandler.addVariable(varName);
 
         Set<String> modSet = new HashSet<>();
         modSet.add(varName);
@@ -387,19 +160,19 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitAssumeStmt(SimpleCParser.AssumeStmtContext ctx) {
+    public NodeResult visitAssumeStmt(AssumeStmtContext ctx) {
         NodeResult cond = visit(ctx.condition);
-        addAssumption(cond.getCode().toString());
+        scopesHandler.addAssumption(cond.getCode().toString());
 
         return new NodeResult(new StringBuilder(), cond.getModSet());
     }
 
     @Override
-    public NodeResult visitBlockStmt(SimpleCParser.BlockStmtContext ctx) {
+    public NodeResult visitBlockStmt(BlockStmtContext ctx) {
         StringBuilder code = new StringBuilder();
         Set<String> modSet = new HashSet<>();
 
-        for (SimpleCParser.StmtContext stmt: ctx.stmts) {
+        for (StmtContext stmt: ctx.stmts) {
             NodeResult stmtResult = visit(stmt);
             code.append(stmtResult.getCode() + EOL);
             modSet.addAll(stmtResult.getModSet());
@@ -417,74 +190,74 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitIfStmt(SimpleCParser.IfStmtContext ctx) {
+    public NodeResult visitIfStmt(IfStmtContext ctx) {
         NodeResult conditionResult = visit(ctx.condition);
         StringBuilder code = new StringBuilder();
         Set<String> modSet = new HashSet<>();
 
         // evaluate then branch
-        pushStack();
-        addConditionToScope(conditionResult.getCode().toString());
+        scopesHandler.pushStack();
+        scopesHandler.addCondition(conditionResult.getCode().toString());
         NodeResult thenResult = visit(ctx.thenBlock);
         modSet.addAll(thenResult.getModSet());
         code.append(thenResult.getCode().toString());
-        ScopeInfo thenScope = popStack();
+        ScopeInfo thenScope = scopesHandler.popStack();
 
         NodeResult elseResult = new NodeResult(new StringBuilder(), new HashSet<>());
         ScopeInfo elseScope = new ScopeInfo();
         // evaluate else branch
         if (ctx.elseBlock != null) {
-            pushStack();
-            addConditionToScope(String.format("!(%s)", conditionResult.getCode().toString()));
+            scopesHandler.pushStack();
+            scopesHandler.addCondition(String.format("!(%s)", conditionResult.getCode().toString()));
             elseResult = visit(ctx.elseBlock);
             modSet.addAll(elseResult.getModSet());
             code.append(elseResult.getCode().toString());
-            elseScope = popStack();
+            elseScope = scopesHandler.popStack();
         }
 
         // update modified variables
         for (String modifiedVar: modSet) {
             // get value of the variable from then branch
-            String thenValue = getFromGivenScopeOrGlobal(thenScope, modifiedVar);
+            String thenValue = scopesHandler.varFromGivenScopeOrGlobal(thenScope, modifiedVar);
             // get value from else branch
-            String elseValue = getFromGivenScopeOrGlobal(elseScope, modifiedVar);
+            String elseValue = scopesHandler.varFromGivenScopeOrGlobal(elseScope, modifiedVar);
 
             // new value of variable
             String newExpr = generateNewIfValue(conditionResult.getCode().toString(), thenValue, elseValue);
 
             // generate new label for variable
-            addVariableToScope(modifiedVar);
-            code.append(String.format(ASSIGN_STMT, latestVarRef(modifiedVar), newExpr));
+            scopesHandler.addVariable(modifiedVar);
+            code.append(String.format(ASSIGN_STMT, scopesHandler.latestVar(modifiedVar), newExpr));
         }
 
         return new NodeResult(code, modSet);
     }
 
     @Override
-    public NodeResult visitVarIdentifier(SimpleCParser.VarIdentifierContext ctx) {
+    public NodeResult visitVarIdentifier(VarIdentifierContext ctx) {
         StringBuilder code = new StringBuilder();
-        code.append(latestVarRef(ctx.getText()));
+        code.append(scopesHandler.latestVar(ctx.getText()));
 
         return new NodeResult(code, new HashSet<>());
     }
 
     @Override
-    public NodeResult visitVarref(SimpleCParser.VarrefContext ctx) {
+    public NodeResult visitVarref(VarrefContext ctx) {
         return visit(ctx.ident);
     }
 
     @Override
-    public NodeResult visitExpr(SimpleCParser.ExprContext ctx) {
+    public NodeResult visitExpr(ExprContext ctx) {
         return visit(ctx.ternExpr());
     }
 
     @Override
-    public NodeResult visitTernExpr(SimpleCParser.TernExprContext ctx) {
+    public NodeResult visitTernExpr(TernExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
         List<NodeResult> childrenResults = new ArrayList<>();
-        for (SimpleCParser.LorExprContext child: ctx.args) {
+        for (LorExprContext child: ctx.args) {
             childrenResults.add(visit(child));
         }
 
@@ -522,7 +295,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitLorExpr(SimpleCParser.LorExprContext ctx) {
+    public NodeResult visitLorExpr(LorExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -530,7 +303,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitLandExpr(SimpleCParser.LandExprContext ctx) {
+    public NodeResult visitLandExpr(LandExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -538,7 +311,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitBorExpr(SimpleCParser.BorExprContext ctx) {
+    public NodeResult visitBorExpr(BorExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -546,7 +319,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitBxorExpr(SimpleCParser.BxorExprContext ctx) {
+    public NodeResult visitBxorExpr(BxorExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -554,7 +327,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitBandExpr(SimpleCParser.BandExprContext ctx) {
+    public NodeResult visitBandExpr(BandExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -562,7 +335,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitEqualityExpr(SimpleCParser.EqualityExprContext ctx) {
+    public NodeResult visitEqualityExpr(EqualityExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -570,7 +343,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitRelExpr(SimpleCParser.RelExprContext ctx) {
+    public NodeResult visitRelExpr(RelExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -578,7 +351,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitShiftExpr(SimpleCParser.ShiftExprContext ctx) {
+    public NodeResult visitShiftExpr(ShiftExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -586,7 +359,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitAddExpr(SimpleCParser.AddExprContext ctx) {
+    public NodeResult visitAddExpr(AddExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -594,7 +367,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitMulExpr(SimpleCParser.MulExprContext ctx) {
+    public NodeResult visitMulExpr(MulExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -602,7 +375,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitUnaryExpr(SimpleCParser.UnaryExprContext ctx) {
+    public NodeResult visitUnaryExpr(UnaryExprContext ctx) {
         if (ctx.single != null) {
             return visit(ctx.single);
         }
@@ -619,23 +392,23 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitAtomExpr(SimpleCParser.AtomExprContext ctx) {
+    public NodeResult visitAtomExpr(AtomExprContext ctx) {
         // it does seem to have only one child
         return visit(ctx.getChild(0));
     }
 
     @Override
-    public NodeResult visitNumberExpr(SimpleCParser.NumberExprContext ctx) {
+    public NodeResult visitNumberExpr(NumberExprContext ctx) {
         return new NodeResult(new StringBuilder(ctx.number.getText()), new HashSet<>());
     }
 
     @Override
-    public NodeResult visitVarrefExpr(SimpleCParser.VarrefExprContext ctx) {
+    public NodeResult visitVarrefExpr(VarrefExprContext ctx) {
         return visit(ctx.var);
     }
 
     @Override
-    public NodeResult visitParenExpr(SimpleCParser.ParenExprContext ctx) {
+    public NodeResult visitParenExpr(ParenExprContext ctx) {
         NodeResult child = visit(ctx.arg);
         String newCode = String.format("(%s)", child.getCode());
 
@@ -643,14 +416,14 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
     }
 
     @Override
-    public NodeResult visitResultExpr(SimpleCParser.ResultExprContext ctx) {
-        return visit(getEnclosingrMethodReturnStmt());
+    public NodeResult visitResultExpr(ResultExprContext ctx) {
+        return visit(scopesHandler.getEnclosingMethodReturnStmt());
     }
 
     @Override
-    public NodeResult visitOldExpr(SimpleCParser.OldExprContext ctx) {
+    public NodeResult visitOldExpr(OldExprContext ctx) {
         String varName = ctx.arg.ident.name.getText();
-        String newCode = String.format(VAR_ID, varName, peekMethodScope().getGlobalValueAtEntry(varName));
+        String newCode = String.format(VAR_ID, varName, scopesHandler.getOldGlobalVariable(varName));
 
         return new NodeResult(new StringBuilder(newCode), new HashSet<>());
     }
