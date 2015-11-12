@@ -7,6 +7,8 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
+import ast.AntlrToAstConverter;
+import ast.Program;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 
@@ -35,7 +37,7 @@ public class SRTool {
 		if(parser.getNumberOfSyntaxErrors() > 0) {
 			System.exit(1);
 		}
-		String result = new SimpleCToNoShadowing(new VariableIdsGenerator()).visit(programCtx);
+		String result = new SimpleCToNoShadowing(new VariableIdsGenerator(), programCtx).visit(programCtx);
 
 		return result;
 	}
@@ -67,6 +69,9 @@ public class SRTool {
 	public static void main(String[] args) throws IOException, InterruptedException {
 		String fileContent = readFile(args[0], StandardCharsets.UTF_8);
 		ProgramContext ctx = syntaxAndSemanticProgramCheck(fileContent);
+
+		// let's play with this new type system
+		//Program program = (Program) new AntlrToAstConverter().visit(ctx);
 
 		// useful abstraction for debug prints
 		DEBUG_LEVEL debugLevel;

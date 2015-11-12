@@ -72,7 +72,7 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         Set<String> modSet = new HashSet<>();
 
         scopesHandler.pushStack();
-        scopesHandler.pushMethodStack(ctx);
+        scopesHandler.pushMethodsStack(ctx);
 
         // add parameters to current stack
         if (ctx.formals != null) {
@@ -389,12 +389,6 @@ public class SimpleCToSSA extends SimpleCBaseVisitor<NodeResult> {
         code.append(child.getCode());
 
         return new NodeResult(code, new HashSet<>());
-    }
-
-    @Override
-    public NodeResult visitAtomExpr(AtomExprContext ctx) {
-        // it does seem to have only one child
-        return visit(ctx.getChild(0));
     }
 
     @Override

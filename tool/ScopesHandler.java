@@ -91,7 +91,9 @@ public class ScopesHandler {
 
     private static final String IMPLICATION_STMT = "!(%s) || %s";
 
-    private List<String> globalVariables;
+    private Set<String> globalVariables;
+
+    private ScopeInfo globalScope;
 
     private List<ScopeInfo> scopesStack;
 
@@ -102,13 +104,18 @@ public class ScopesHandler {
     private VariableIdsGenerator freshIds;
 
     public ScopesHandler(Map<String, Integer> globals, VariableIdsGenerator freshIds) {
-        globalVariables = new LinkedList<>(globals.keySet());
+        globalVariables = new HashSet<>(globals.keySet());
         scopesStack = new LinkedList<>();
-        scopesStack.add(0, new ScopeInfo(globals));
+        globalScope = new ScopeInfo(globals);
+        scopesStack.add(0, globalScope);
 
         this.freshIds = freshIds;
         methodScopesStack = new LinkedList<>();
         assumptions = new String();
+    }
+
+    public ScopesHandler(VariableIdsGenerator freshIds) {
+        this(new HashMap<>(), freshIds);
     }
 
     private ScopeInfo peekScope() {
@@ -118,8 +125,6 @@ public class ScopesHandler {
     private MethodScope peekMethodScope() {
         return methodScopesStack.get(0);
     }
-
-
 
     public ScopeInfo popStack() {
         return scopesStack.remove(0);
@@ -133,7 +138,7 @@ public class ScopesHandler {
         scopesStack.add(0, new ScopeInfo());
     }
 
-    public void pushMethodStack(ProcedureDeclContext ctx) {
+    public void pushMethodsStack(ProcedureDeclContext ctx) {
         Map<String, Integer> globalsValues = new HashMap<>();
         for (String globalVar: globalVariables) {
             globalsValues.put(globalVar, latestVarId(globalVar));
@@ -142,9 +147,18 @@ public class ScopesHandler {
         methodScopesStack.add(0, new MethodScope(ctx, globalsValues));
     }
 
+    public Set<String> getGlobalVariables() {
+        return globalVariables;
+    }
+
     public void addVariable(String name) {
         Integer newId = freshIds.generateFresh(name);
         peekScope().addVariable(name, newId);
+    }
+
+    public void addGlobalVariable(String name) {
+        globalScope.addVariable(name, freshIds.generateFresh(name));
+        globalVariables.add(name);
     }
 
     public void addCondition(String condition) {

@@ -59,73 +59,30 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
 
     private static final String OLD_EXPR = "\\old(%s)";
 
-    private VariableIdsGenerator freshIds;
+    private ScopesHandler scopesHandler;
 
-    private List<Map<String, Integer>> scopesStack;
-
-    private List<Map<String, Integer>> methodsStack;
-
-    private Map<String, Integer> globalVariables;
-
-    public SimpleCToNoShadowing(VariableIdsGenerator freshIds) {
-        this.freshIds = freshIds;
-        scopesStack = new LinkedList<>();
-        methodsStack = new LinkedList<>();
-        globalVariables = new HashMap<>();
-    }
-
-    // HELPER methods BEGIN
-
-    private void pushStack() {
-        scopesStack.add(0, new HashMap<>());
-    }
-
-    private void popStack() {
-        scopesStack.remove(0);
-    }
-
-    private Map<String, Integer> peekScope() {
-        return scopesStack.get(0);
-    }
-
-    private void addVariableToScope(String name) {
-        Integer newId = freshIds.generateFresh(name);
-        peekScope().put(name, newId);
-    }
-
-    private Integer latestVarId(String name) {
-        for (Map<String, Integer> scope: scopesStack) {
-            Integer valueForVar = scope.get(name);
-            if (valueForVar != null) {
-                return valueForVar;
-            }
+    public SimpleCToNoShadowing(VariableIdsGenerator freshIds, SimpleCParser.ProgramContext ctx) {
+        scopesHandler = new ScopesHandler(freshIds);
+        for (SimpleCParser.VarDeclContext var: ctx.globals) {
+            String globalVar = var.ident.name.getText();
+            scopesHandler.addGlobalVariable(globalVar);
         }
-
-        return null;
     }
-
-    private String latestVarRef(String name) {
-        Integer latestId = latestVarId(name);
-        return latestId != null ? String.format(VAR_ID, name, latestId) : null;
-    }
-    // HELPER methods END
 
     @Override
     public String visitProgram(SimpleCParser.ProgramContext ctx) {
         StringBuilder code = new StringBuilder();
-        pushStack();
+        scopesHandler.pushStack();
         // add global variables
-        for (SimpleCParser.VarDeclContext var: ctx.globals) {
-            code.append(visit(var) + EOL);
-            String globalVar = var.ident.name.getText();
-            globalVariables.put(globalVar, latestVarId(globalVar));
+        for (String globalVar: scopesHandler.getGlobalVariables()) {
+            code.append(String.format(VAR_DECL, scopesHandler.latestVar(globalVar)));
         }
 
         // add methods
         for (SimpleCParser.ProcedureDeclContext proc: ctx.procedures) {
             code.append(visit(proc) + EOL);
         }
-        popStack();
+        scopesHandler.popStack();
 
         return code.toString();
     }
@@ -133,9 +90,9 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
     @Override
     public String visitVarDecl(SimpleCParser.VarDeclContext ctx) {
         String varName = ctx.ident.name.getText();
-        addVariableToScope(varName);
+        scopesHandler.addVariable(varName);
 
-        return String.format(VAR_DECL, latestVarRef(varName));
+        return String.format(VAR_DECL, scopesHandler.latestVar(varName));
     }
 
     private<T extends ParserRuleContext> String tokenSeparated(List<T> listNodes, String sep) {
@@ -152,7 +109,8 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
 
     @Override
     public String visitProcedureDecl(SimpleCParser.ProcedureDeclContext ctx) {
-        pushStack();
+        scopesHandler.pushStack();
+        scopesHandler.pushMethodsStack(ctx);
         String methodName = ctx.name.getText();
 
         // obtain parameters string
@@ -166,7 +124,8 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
 
         // expression for return stmt
         String returnStmt = visit(ctx.returnExpr);
-        popStack();
+        scopesHandler.popStack();
+        scopesHandler.popMethodsStack();
 
         return String.format(METHOD, methodName, parameters, prepost, stmts, returnStmt);
     }
@@ -174,9 +133,9 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
     @Override
     public String visitFormalParam(SimpleCParser.FormalParamContext ctx) {
         String varName = ctx.ident.name.getText();
-        addVariableToScope(varName);
+        scopesHandler.addVariable(varName);
 
-        return String.format(FORMAL_PARAM, latestVarRef(varName));
+        return String.format(FORMAL_PARAM, scopesHandler.latestVar(varName));
     }
 
     @Override
@@ -204,7 +163,7 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
         String rhsResult = visit(ctx.rhs);
         String name = ctx.lhs.ident.name.getText();
 
-        return String.format(ASSIGN_STMT, latestVarRef(name), rhsResult);
+        return String.format(ASSIGN_STMT, scopesHandler.latestVar(name), rhsResult);
     }
 
     @Override
@@ -237,16 +196,16 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
         StringBuilder code = new StringBuilder();
 
         // evaluate then branch
-        pushStack();
+        scopesHandler.pushStack();
         code.append(String.format(IF_STMT, conditionResult, visit(ctx.thenBlock)));
-        popStack();
+        scopesHandler.popStack();
 
         String elseResult = new String();
         // evaluate else branch
         if (ctx.elseBlock != null) {
-            pushStack();
+            scopesHandler.pushStack();
             code.append(String.format(IF_ELSE_STMT, visit(ctx.elseBlock)));
-            popStack();
+            scopesHandler.popStack();
         }
 
         return code.toString();
@@ -265,11 +224,11 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
     public String visitBlockStmt(SimpleCParser.BlockStmtContext ctx) {
         StringBuilder code = new StringBuilder();
 
-        pushStack();
+        scopesHandler.pushStack();
         for (SimpleCParser.StmtContext stmt: ctx.stmts) {
             code.append(visit(stmt));
         }
-        popStack();
+        scopesHandler.popStack();
 
         return String.format(BLOCK_STMT, code.toString());
     }
@@ -465,17 +424,17 @@ public class SimpleCToNoShadowing extends SimpleCBaseVisitor<String> {
     @Override
     public String visitOldExpr(SimpleCParser.OldExprContext ctx) {
         String varName = ctx.arg.ident.name.getText();
-        String newOldVar = String.format(VAR_ID, ctx.arg.ident.name.getText(), globalVariables.get(varName));
+        String newOldVar = String.format(VAR_ID, ctx.arg.ident.name.getText(), scopesHandler.getOldGlobalVariable(varName));
         return String.format(OLD_EXPR, newOldVar);
     }
 
     @Override
     public String visitVarref(SimpleCParser.VarrefContext ctx) {
-        return latestVarRef(ctx.ident.name.getText());
+        return scopesHandler.latestVar(ctx.ident.name.getText());
     }
 
     @Override
     public String visitVarIdentifier(SimpleCParser.VarIdentifierContext ctx) {
-        return latestVarRef(ctx.name.getText());
+        return scopesHandler.latestVar(ctx.name.getText());
     }
 }
