@@ -1,5 +1,6 @@
 package tool;
 
+import ast.ProcedureDecl;
 import parser.SimpleCParser.*;
 
 import java.util.*;
@@ -53,6 +54,8 @@ class MethodScope {
 
     private ExprContext returnStmt;
 
+    private ProcedureDecl procedureDecl;
+
     public MethodScope(ProcedureDeclContext ctx, Map<String, Integer> globalsValue) {
         this.globalsValue = globalsValue;
         returnStmt = ctx.returnExpr;
@@ -66,6 +69,11 @@ class MethodScope {
                 postConditionsNodes.add(cond.ensures());
             }
         }
+    }
+
+    public MethodScope(ProcedureDecl procedureDecl, Map<String, Integer> globalsValue) {
+        this.globalsValue = globalsValue;
+        this.procedureDecl = procedureDecl;
     }
 
     public Integer getGlobalValueAtEntry(String varName) {
@@ -145,6 +153,15 @@ public class ScopesHandler {
         }
 
         methodScopesStack.add(0, new MethodScope(ctx, globalsValues));
+    }
+
+    public void pushMethodsStack(ProcedureDecl procedureDecl) {
+        Map<String, Integer> globalsValues = new HashMap<>();
+        for (String globalVar: globalVariables) {
+            globalsValues.put(globalVar, latestVarId(globalVar));
+        }
+
+        methodScopesStack.add(0, new MethodScope(procedureDecl, globalsValues));
     }
 
     public Set<String> getGlobalVariables() {

@@ -9,6 +9,7 @@ import java.util.Map;
 
 import ast.AntlrToAstConverter;
 import ast.Program;
+import ast.visitor.impl.DefaultVisitor;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 
@@ -71,7 +72,8 @@ public class SRTool {
 		ProgramContext ctx = syntaxAndSemanticProgramCheck(fileContent);
 
 		// let's play with this new type system
-		//Program program = (Program) new AntlrToAstConverter().visit(ctx);
+		Program program = (Program) new AntlrToAstConverter().visit(ctx);
+		//Program program2 = (Program) new DefaultVisitor().visit(program);
 
 		// useful abstraction for debug prints
 		DEBUG_LEVEL debugLevel;
