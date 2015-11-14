@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 public class IfStmt extends Stmt {
 
     private Expr condition;
@@ -24,5 +26,10 @@ public class IfStmt extends Stmt {
 
     public BlockStmt getElseBlock() {
         return elseBlock;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

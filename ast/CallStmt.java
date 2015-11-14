@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 import java.util.LinkedList;
 import java.util.List;
 
@@ -27,5 +29,10 @@ public class CallStmt extends Stmt {
 
     public List<Expr> getParametersList() {
         return parametersList;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

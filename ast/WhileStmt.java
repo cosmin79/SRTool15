@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 import java.util.List;
 
 public class WhileStmt extends Stmt {
@@ -26,5 +28,10 @@ public class WhileStmt extends Stmt {
 
     public BlockStmt getBody() {
         return body;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

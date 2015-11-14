@@ -256,4 +256,8 @@ public class ScopesHandler {
     public Integer getOldGlobalVariable(String varName) {
         return peekMethodScope().getGlobalValueAtEntry(varName);
     }
+
+    public String getOldGlobal(String varName) {
+        return String.format(VAR_ID, varName, getOldGlobalVariable(varName));
+    }
 }

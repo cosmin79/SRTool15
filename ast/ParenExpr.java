@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 public class ParenExpr extends AtomExpr {
 
     private Expr expr;
@@ -10,5 +12,10 @@ public class ParenExpr extends AtomExpr {
 
     public Expr getExpr() {
         return expr;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 public class AssignStmt extends Stmt {
 
     private VarRef lhsVar;
@@ -17,5 +19,10 @@ public class AssignStmt extends Stmt {
 
     public Expr getRhsExpr() {
         return rhsExpr;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

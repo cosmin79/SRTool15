@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 import java.util.List;
 
 public class BlockStmt extends Stmt {
@@ -12,5 +14,10 @@ public class BlockStmt extends Stmt {
 
     public List<Stmt> getStmts() {
         return stmts;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

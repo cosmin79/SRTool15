@@ -10,6 +10,8 @@ import java.util.Map;
 import ast.AntlrToAstConverter;
 import ast.Program;
 import ast.visitor.impl.DefaultVisitor;
+import ast.visitor.impl.PrintVisitor;
+import ast.visitor.impl.ShadowVisitor;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 
@@ -73,7 +75,10 @@ public class SRTool {
 
 		// let's play with this new type system
 		Program program = (Program) new AntlrToAstConverter().visit(ctx);
-		//Program program2 = (Program) new DefaultVisitor().visit(program);
+		Program program2 = (Program) new ShadowVisitor(program).visit(program);
+
+		System.out.println(new PrintVisitor().visit(program2));
+		// if this works, there is a chance all will work
 
 		// useful abstraction for debug prints
 		DEBUG_LEVEL debugLevel;

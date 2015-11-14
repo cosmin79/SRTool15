@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 public class VarDecl extends Stmt {
 
     private VarIdentifier varIdentifier;
@@ -10,5 +12,10 @@ public class VarDecl extends Stmt {
 
     public VarIdentifier getVarIdentifier() {
         return varIdentifier;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

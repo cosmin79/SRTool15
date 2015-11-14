@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 public class VarRefExpr extends AtomExpr {
 
     private VarRef varRef;
@@ -10,5 +12,10 @@ public class VarRefExpr extends AtomExpr {
 
     public VarRef getVarRef() {
         return varRef;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 public class TernExpr extends Expr {
 
     private Expr condition;
@@ -24,5 +26,10 @@ public class TernExpr extends Expr {
 
     public Expr getElseExpr() {
         return elseExpr;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

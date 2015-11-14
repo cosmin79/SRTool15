@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 import java.util.LinkedList;
 import java.util.List;
 
@@ -45,5 +47,10 @@ public class ProcedureDecl extends Node {
 
     public Expr getReturnExpr() {
         return returnExpr;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

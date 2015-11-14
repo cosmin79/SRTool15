@@ -2,299 +2,219 @@ package ast.visitor.impl;
 
 import ast.*;
 import ast.visitor.Visitor;
-import tool.ScopesHandler;
-import tool.VariableIdsGenerator;
 
 import java.util.LinkedList;
 import java.util.List;
 
-public class DefaultVisitor implements Visitor<Node> {
-
-    private ScopesHandler scopesHandler;
-
-    public DefaultVisitor(VariableIdsGenerator freshIds, Program program) {
-        scopesHandler = new ScopesHandler(freshIds);
-        for (VarDecl varDecl: program.getVarDecls()) {
-            scopesHandler.addGlobalVariable(varDecl.getVarIdentifier().getVarName());
-        }
-    }
+public class DefaultVisitor implements Visitor<Object> {
 
     @Override
-    public Node visit(Program program) {
+    public Object visit(Program program) {
         List<VarDecl> globals = new LinkedList<>();
         List<ProcedureDecl> procedures = new LinkedList<>();
 
-        for (String globalVar: scopesHandler.getGlobalVariables()) {
-            globals.add(new VarDecl(new VarIdentifier(scopesHandler.latestVar(globalVar))));
+        for (VarDecl varDecl: program.getVarDecls()) {
+            globals.add((VarDecl) varDecl.accept(this));
         }
-        
+
         for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
-            procedures.add((ProcedureDecl) visit(procedureDecl));
+            procedures.add((ProcedureDecl) procedureDecl.accept(this));
         }
 
         return new Program(globals, procedures);
     }
 
     @Override
-    public Node visit(VarDecl varDecl) {
-        return new VarDecl((VarIdentifier) visit(varDecl.getVarIdentifier()));
+    public Object visit(VarDecl varDecl) {
+        return new VarDecl((VarIdentifier) varDecl.getVarIdentifier().accept(this));
     }
 
     @Override
-    public Node visit(ProcedureDecl procedureDecl) {
+    public Object visit(ProcedureDecl procedureDecl) {
         String methodName = procedureDecl.getMethodName();
         List<FormalParam> formalParams = new LinkedList<>();
         List<PrePostCondition> prePostConditions = new LinkedList<>();
         List<Stmt> stmts = new LinkedList<>();
 
         for (FormalParam param: procedureDecl.getParamList()) {
-            formalParams.add((FormalParam) visit(param));
+            formalParams.add((FormalParam) param.accept(this));
         }
 
         for (PrePostCondition prePostCondition: procedureDecl.getPrePostConditions()) {
-            prePostConditions.add((PrePostCondition) visit(prePostCondition));
+            prePostConditions.add((PrePostCondition) prePostCondition.accept(this));
         }
 
         for (Stmt stmt: procedureDecl.getStmts()) {
-            stmts.add((Stmt) visit(stmt));
+            stmts.add((Stmt) stmt.accept(this));
         }
 
-        Expr resultExpr = (Expr) visit(procedureDecl.getReturnExpr());
+        Expr resultExpr = (Expr) procedureDecl.getReturnExpr().accept(this);
 
         return new ProcedureDecl(methodName, formalParams, prePostConditions, stmts, resultExpr);
     }
 
     @Override
-    public Node visit(FormalParam formalParam) {
-        return new FormalParam((VarIdentifier) visit(formalParam.getVarIdentifier()));
+    public Object visit(FormalParam formalParam) {
+        return new FormalParam((VarIdentifier) formalParam.getVarIdentifier().accept(this));
     }
 
     @Override
-    public Node visit(PrePostCondition prePostCondition) {
-        if (prePostCondition instanceof Precondition) {
-            return visit((Precondition) prePostCondition);
-        } else if (prePostCondition instanceof Postcondition) {
-            return visit((Postcondition) prePostCondition);
-        } else if (prePostCondition instanceof CandidatePrecondition) {
-            return visit((CandidatePrecondition) prePostCondition);
-        }
-
-        return visit((CandidatePostcondition) prePostCondition);
+    public Object visit(Precondition precondition) {
+        return new Precondition((Expr) precondition.getCondition().accept(this));
     }
 
     @Override
-    public Node visit(Precondition precondition) {
-        return new Precondition((Expr) visit(precondition.getCondition()));
+    public Object visit(Postcondition postcondition) {
+        return new Postcondition((Expr) postcondition.getCondition().accept(this));
     }
 
     @Override
-    public Node visit(Postcondition postcondition) {
-        return new Postcondition((Expr) visit(postcondition.getCondition()));
+    public Object visit(CandidatePrecondition candidatePrecondition) {
+        return new CandidatePrecondition((Expr) candidatePrecondition.getCondition().accept(this));
     }
 
     @Override
-    public Node visit(CandidatePrecondition candidatePrecondition) {
-        return new CandidatePrecondition((Expr) visit(candidatePrecondition.getCondition()));
+    public Object visit(CandidatePostcondition candidatePostcondition) {
+        return new CandidatePostcondition((Expr) candidatePostcondition.getCondition().accept(this));
     }
 
     @Override
-    public Node visit(CandidatePostcondition candidatePostcondition) {
-        return new CandidatePostcondition((Expr) visit(candidatePostcondition.getCondition()));
+    public Object visit(AssignStmt assignStmt) {
+        Expr rhsExpr = (Expr) assignStmt.getRhsExpr().accept(this);
+        VarRef lhsVar = (VarRef) assignStmt.getLhsVar().accept(this);
+
+        return new AssignStmt(lhsVar, rhsExpr);
     }
 
     @Override
-    public Node visit(Stmt stmt) {
-        if (stmt instanceof VarDecl) {
-            return visit((VarDecl) stmt);
-        } else if (stmt instanceof AssignStmt) {
-            return visit((AssignStmt) stmt);
-        } else if (stmt instanceof AssertStmt) {
-            return visit((AssertStmt) stmt);
-        } else if (stmt instanceof AssumeStmt) {
-            return visit((AssumeStmt) stmt);
-        } else if (stmt instanceof HavocStmt) {
-            return visit((HavocStmt) stmt);
-        } else if (stmt instanceof CallStmt) {
-            return visit((CallStmt) stmt);
-        } else if (stmt instanceof IfStmt) {
-            return visit((IfStmt) stmt);
-        } else if (stmt instanceof WhileStmt) {
-            return visit((WhileStmt) stmt);
-        }
-
-        return visit((BlockStmt) stmt);
+    public Object visit(AssertStmt assertStmt) {
+        return new AssertStmt((Expr) assertStmt.getCondition().accept(this));
     }
 
     @Override
-    public Node visit(AssignStmt assignStmt) {
-        return new AssignStmt((VarRef) visit(assignStmt.getLhsVar()), (Expr) visit(assignStmt.getRhsExpr()));
+    public Object visit(AssumeStmt assumeStmt) {
+        return new AssumeStmt((Expr) assumeStmt.getCondition().accept(this));
     }
 
     @Override
-    public Node visit(AssertStmt assertStmt) {
-        return new AssertStmt((Expr) visit(assertStmt.getCondition()));
+    public Object visit(HavocStmt havocStmt) {
+        return new HavocStmt((VarRef) havocStmt.getVar().accept(this));
     }
 
     @Override
-    public Node visit(AssumeStmt assumeStmt) {
-        return new AssumeStmt((Expr) visit(assumeStmt.getCondition()));
-    }
-
-    @Override
-    public Node visit(HavocStmt havocStmt) {
-        return new HavocStmt((VarRef) visit(havocStmt.getVar()));
-    }
-
-    @Override
-    public Node visit(CallStmt callStmt) {
-        VarRef lhsVar = (VarRef) visit(callStmt.getLhsVar());
+    public Object visit(CallStmt callStmt) {
         String methodName = callStmt.getMethodName();
 
         List<Expr> parameters = new LinkedList<>();
         for (Expr expr: callStmt.getParametersList()) {
-            parameters.add((Expr) visit(expr));
+            parameters.add((Expr) expr.accept(this));
         }
+
+        VarRef lhsVar = (VarRef) callStmt.getLhsVar().accept(this);
 
         return new CallStmt(lhsVar, methodName, parameters);
     }
 
     @Override
-    public Node visit(IfStmt ifStmt) {
-        Expr condition = (Expr) visit(ifStmt.getCondition());
-        BlockStmt thenBlock = (BlockStmt) visit(ifStmt.getThenBlock());
-        BlockStmt elseBlock = (BlockStmt) visit(ifStmt.getElseBlock());
+    public Object visit(IfStmt ifStmt) {
+        Expr condition = (Expr) ifStmt.getCondition().accept(this);
+        BlockStmt thenBlock = (BlockStmt) ifStmt.getThenBlock().accept(this);
+        BlockStmt elseBlock = (BlockStmt) ifStmt.getElseBlock().accept(this);
 
         return new IfStmt(condition, thenBlock, elseBlock);
     }
 
     @Override
-    public Node visit(WhileStmt whileStmt) {
-        Expr condition = (Expr) visit(whileStmt.getCondition());
+    public Object visit(WhileStmt whileStmt) {
+        Expr condition = (Expr) whileStmt.getCondition().accept(this);
         List<LoopInvariant> loopInvariants = new LinkedList<>();
-        BlockStmt body = (BlockStmt) visit(whileStmt.getBody());
+        BlockStmt body = (BlockStmt) whileStmt.getBody().accept(this);
 
         for (LoopInvariant invariant: whileStmt.getLoopInvariantList()) {
-            loopInvariants.add((LoopInvariant) visit(invariant));
+            loopInvariants.add((LoopInvariant) invariant.accept(this));
         }
 
         return new WhileStmt(condition, loopInvariants, body);
     }
 
     @Override
-    public Node visit(BlockStmt blockStmt) {
+    public Object visit(BlockStmt blockStmt) {
         List<Stmt> stmts = new LinkedList<>();
         for (Stmt stmt: blockStmt.getStmts()) {
-            stmts.add((Stmt) visit(stmt));
+            stmts.add((Stmt) stmt.accept(this));
         }
 
         return new BlockStmt(stmts);
     }
 
     @Override
-    public Node visit(LoopInvariant loopInvariant) {
-        if (loopInvariant instanceof Invariant) {
-            return visit((Invariant) loopInvariant);
-        }
-
-        return visit((CandidateInvariant) loopInvariant);
+    public Object visit(Invariant invariant) {
+        return new Invariant((Expr) invariant.getCondition().accept(this));
     }
 
     @Override
-    public Node visit(Invariant invariant) {
-        return new Invariant((Expr) visit(invariant.getCondition()));
+    public Object visit(CandidateInvariant candidateInvariant) {
+        return new CandidateInvariant((Expr) candidateInvariant.getCondition().accept(this));
     }
 
     @Override
-    public Node visit(CandidateInvariant candidateInvariant) {
-        return new CandidateInvariant((Expr) visit(candidateInvariant.getCondition()));
-    }
-
-    @Override
-    public Node visit(Expr expr) {
-        if (expr instanceof AtomExpr) {
-            return visit((AtomExpr) expr);
-        } else if (expr instanceof BinaryExpr) {
-            return visit((BinaryExpr) expr);
-        } else if (expr instanceof TernExpr) {
-            return visit((TernExpr) expr);
-        }
-
-        return visit((UnaryExpr) expr);
-    }
-
-    @Override
-    public Node visit(TernExpr ternExpr) {
-        Expr condition = (Expr) visit(ternExpr.getCondition());
-        Expr thenExpr = (Expr) visit(ternExpr.getThenExpr());
-        Expr elseExpr = (Expr) visit(ternExpr.getElseExpr());
+    public Object visit(TernExpr ternExpr) {
+        Expr condition = (Expr) ternExpr.getCondition().accept(this);
+        Expr thenExpr = (Expr) ternExpr.getThenExpr().accept(this);
+        Expr elseExpr = (Expr) ternExpr.getElseExpr().accept(this);
 
         return new TernExpr(condition, thenExpr, elseExpr);
     }
 
     @Override
-    public Node visit(BinaryExpr binaryExpr) {
+    public Object visit(BinaryExpr binaryExpr) {
         String binaryOp = binaryExpr.getBinaryOp();
-        Expr lhs = (Expr) visit(binaryExpr.getLhs());
-        Expr rhs = (Expr) visit(binaryExpr.getRhs());
+        Expr lhs = (Expr) binaryExpr.getLhs().accept(this);
+        Expr rhs = (Expr) binaryExpr.getRhs().accept(this);
 
         return new BinaryExpr(binaryOp, lhs, rhs);
     }
 
     @Override
-    public Node visit(UnaryExpr unaryExpr) {
+    public Object visit(UnaryExpr unaryExpr) {
         String unaryOp = unaryExpr.getUnaryOp();
-        Expr arg = (Expr) visit(unaryExpr.getArg());
+        Expr arg = (Expr) unaryExpr.getArg().accept(this);
 
         return new UnaryExpr(unaryOp, arg);
     }
 
     @Override
-    public Node visit(AtomExpr atomExpr) {
-        if (atomExpr instanceof NumberExpr) {
-            return visit((NumberExpr) atomExpr);
-        } else if (atomExpr instanceof  OldExpr) {
-            return visit((OldExpr) atomExpr);
-        } else if (atomExpr instanceof ParenExpr) {
-            return visit((ParenExpr) atomExpr);
-        } else if (atomExpr instanceof ResultExpr) {
-            return visit((ResultExpr) atomExpr);
-        }
-
-        return visit((VarRefExpr) atomExpr);
-    }
-
-    @Override
-    public Node visit(NumberExpr numberExpr) {
+    public Object visit(NumberExpr numberExpr) {
         return new NumberExpr(numberExpr.getNumber());
     }
 
     @Override
-    public Node visit(VarRefExpr varRefExpr) {
-        return new VarRefExpr((VarRef) visit(varRefExpr.getVarRef()));
+    public Object visit(VarRefExpr varRefExpr) {
+        return new VarRefExpr((VarRef) varRefExpr.getVarRef().accept(this));
     }
 
     @Override
-    public Node visit(ParenExpr parenExpr) {
-        return new ParenExpr((Expr) visit(parenExpr.getExpr()));
+    public Object visit(ParenExpr parenExpr) {
+        return new ParenExpr((Expr) parenExpr.getExpr().accept(this));
     }
 
     @Override
-    public Node visit(ResultExpr resultExpr) {
+    public Object visit(ResultExpr resultExpr) {
         return resultExpr;
     }
 
     @Override
-    public Node visit(OldExpr oldExpr) {
-        return new OldExpr((VarRef) visit(oldExpr.getVar()));
+    public Object visit(OldExpr oldExpr) {
+        return new OldExpr((VarRef) oldExpr.getVar().accept(this));
     }
 
     @Override
-    public Node visit(VarRef varRef) {
-        return new VarRef((VarIdentifier) visit(varRef.getVarIdentifier()));
+    public Object visit(VarRef varRef) {
+        return new VarRef((VarIdentifier) varRef.getVarIdentifier().accept(this));
     }
 
     @Override
-    public Node visit(VarIdentifier varIdentifier) {
+    public Object visit(VarIdentifier varIdentifier) {
         return varIdentifier;
     }
 }

@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 public class VarRef extends Node {
 
     private VarIdentifier varIdentifier;
@@ -10,5 +12,10 @@ public class VarRef extends Node {
 
     public VarIdentifier getVarIdentifier() {
         return varIdentifier;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 public class BinaryExpr extends Expr {
 
     private String binaryOp;
@@ -24,5 +26,10 @@ public class BinaryExpr extends Expr {
 
     public Expr getRhs() {
         return rhs;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

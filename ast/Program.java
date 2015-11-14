@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 import java.util.LinkedList;
 import java.util.List;
 
@@ -20,5 +22,10 @@ public class Program extends Node {
 
     public List<ProcedureDecl> getProcedureDecls() {
         return procedureDecls;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }

@@ -1,5 +1,7 @@
 package ast;
 
+import ast.visitor.Visitor;
+
 public class UnaryExpr extends Expr {
 
     private String unaryOp;
@@ -17,5 +19,10 @@ public class UnaryExpr extends Expr {
 
     public Expr getArg() {
         return arg;
+    }
+
+    @Override
+    public Object accept(Visitor visitor) {
+        return visitor.visit(this);
     }
 }
