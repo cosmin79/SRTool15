@@ -4,6 +4,10 @@ import ast.visitor.Visitor;
 
 public class NumberExpr extends AtomExpr {
 
+    public static final NumberExpr TRUE = new NumberExpr(1);
+
+    public static final NumberExpr FALSE = new NumberExpr(0);
+
     private Integer number;
 
     public NumberExpr(Integer number) {
@@ -17,5 +21,20 @@ public class NumberExpr extends AtomExpr {
     @Override
     public Object accept(Visitor visitor) {
         return visitor.visit(this);
+    }
+
+    @Override
+    public int hashCode() {
+        return number;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof NumberExpr)) {
+            return false;
+        }
+        NumberExpr otherNumber = (NumberExpr) other;
+
+        return number == otherNumber.number;
     }
 }

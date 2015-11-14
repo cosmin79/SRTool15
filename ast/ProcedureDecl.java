@@ -27,6 +27,9 @@ public class ProcedureDecl extends Node {
         this.prePostConditions = prePostConditions;
         this.stmts = stmts;
         this.returnExpr = returnExpr;
+        for (Stmt stmt: stmts) {
+            addModSet(stmt);
+        }
     }
 
     public String getMethodName() {

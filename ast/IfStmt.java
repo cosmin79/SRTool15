@@ -14,6 +14,8 @@ public class IfStmt extends Stmt {
         this.condition = condition;
         this.thenBlock = thenBlock;
         this.elseBlock = elseBlock;
+        addModSet(thenBlock);
+        addModSet(elseBlock);
     }
 
     public Expr getCondition() {

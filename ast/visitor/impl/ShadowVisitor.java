@@ -2,6 +2,7 @@ package ast.visitor.impl;
 
 import ast.*;
 import tool.ScopesHandler;
+import tool.ScopesHandlerNew;
 import tool.VariableIdsGenerator;
 
 import java.util.LinkedList;
@@ -9,10 +10,10 @@ import java.util.List;
 
 public class ShadowVisitor extends DefaultVisitor {
 
-    private ScopesHandler scopesHandler;
+    private ScopesHandlerNew scopesHandler;
 
     public ShadowVisitor(Program program) {
-        scopesHandler = new ScopesHandler(new VariableIdsGenerator());
+        scopesHandler = new ScopesHandlerNew(new VariableIdsGenerator());
         for (VarDecl varDecl: program.getVarDecls()) {
             scopesHandler.addGlobalVariable(varDecl.getVarIdentifier().getVarName());
         }

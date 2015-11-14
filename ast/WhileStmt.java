@@ -16,6 +16,7 @@ public class WhileStmt extends Stmt {
         this.condition = condition;
         this.loopInvariantList = loopInvariantsList;
         this.body = body;
+        addModSet(body);
     }
 
     public Expr getCondition() {

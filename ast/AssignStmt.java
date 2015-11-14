@@ -11,6 +11,7 @@ public class AssignStmt extends Stmt {
     public AssignStmt(VarRef lhsVar, Expr rhsExpr) {
         this.lhsVar = lhsVar;
         this.rhsExpr = rhsExpr;
+        addModSet(lhsVar);
     }
 
     public VarRef getLhsVar() {

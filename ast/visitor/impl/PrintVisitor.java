@@ -2,7 +2,6 @@ package ast.visitor.impl;
 
 import ast.*;
 import ast.visitor.Visitor;
-import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.List;
 
@@ -51,7 +50,7 @@ public class PrintVisitor implements Visitor {
 
     private static final String VAR_DECL = "int %s;\n";
 
-    private static final String ASSIGN_STMT = "%s=%s;\n";
+    private static final String ASSIGN_STMT = "%s = %s;\n";
 
     private static final String ASSERT_STMT = "assert %s;\n";
 
@@ -79,8 +78,6 @@ public class PrintVisitor implements Visitor {
 
     private static final String CANDIDATE_INVARIANT = "candidate invariant: %s";
 
-    private static final String VAR_ID = "%s%d";
-
     private static final String CALL_STMT = "%s = %s(%s);\n";
 
     private static final String PAREN_EXPR = "(%s)";
@@ -91,9 +88,9 @@ public class PrintVisitor implements Visitor {
 
     private static final String TERN_EXPR = "%s ? %s : %s";
 
-    private static final String BINARY_EXPR = "%s %s %s";
+    private static final String BINARY_EXPR = "(%s %s %s)";
 
-    private static final String UNARY_EXPR = "%s %s";
+    private static final String UNARY_EXPR = "(%s %s)";
 
     private static final String RETURN_STMT = "return %s;\n";
 

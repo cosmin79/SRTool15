@@ -14,6 +14,9 @@ public class Program extends Node {
     public Program(List<VarDecl> varDecls, List<ProcedureDecl> procedureDecls) {
         this.varDecls = varDecls;
         this.procedureDecls = procedureDecls;
+        for (ProcedureDecl procedureDecl: procedureDecls) {
+            addModSet(procedureDecl);
+        }
     }
 
     public List<VarDecl> getVarDecls() {
