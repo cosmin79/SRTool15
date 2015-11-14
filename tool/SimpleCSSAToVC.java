@@ -1,16 +1,12 @@
 package tool;
 
+import com.sun.org.apache.xpath.internal.operations.Div;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import parser.SimpleCBaseVisitor;
 import parser.SimpleCParser;
 
 import java.util.*;
-
-enum ArgType {
-    INT,
-    BOOLEAN;
-}
 
 /**
  * We assume that this visitor is used for a SimpleC program with the following structure:
@@ -31,9 +27,9 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
 
     private static final String AND_EXPR = "(and %s %s)";
 
-    private static final String TO_BOOL_EXPR = "(tobool %s)";
+    public static final String TO_BOOL_EXPR = "(tobool %s)";
 
-    private static final String TO_INT_EXPR = "(tobv32 %s)";
+    public static final String TO_INT_EXPR = "(tobv32 %s)";
 
     private static final String TERN_EXPR = "(ite (tobool %s) %s %s)";
 
@@ -41,7 +37,7 @@ public class SimpleCSSAToVC extends SimpleCBaseVisitor<String> {
 
     // mapping from a binary operator to the right SMT expression
     private final Map<String, String> operatorsMap = new HashMap<String, String>() {{
-        put("||", "(or %s %s)");
+        put("||",  "(or %s %s)");
         put("&&", "(and %s %s)");
 
         put("|", "(bvor %s %s)");

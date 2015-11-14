@@ -2,41 +2,9 @@ package ast.visitor.impl;
 
 import ast.*;
 import ast.visitor.Visitor;
+import util.Indent;
 
 import java.util.List;
-
-class Indent {
-    private String tab;
-    private String indentation;
-    private int numberOfTabs;
-
-    public Indent(String tab) {
-        this.tab = tab;
-        numberOfTabs = 0;
-        indentation = null;
-    }
-
-    public void push() {
-        numberOfTabs++;
-        indentation = null;
-    }
-
-    public void pop() {
-        numberOfTabs--;
-        indentation = null;
-    }
-
-    public String getIndent() {
-        if (indentation == null) {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 1; i <= numberOfTabs; i++) {
-                sb.append(tab);
-            }
-            indentation = sb.toString();
-        }
-        return indentation;
-    }
-}
 
 public class PrintVisitor implements Visitor {
 

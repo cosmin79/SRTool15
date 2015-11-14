@@ -12,7 +12,11 @@ public class SSAVisitor extends DefaultVisitor {
     private ScopesHandlerNew scopesHandler;
 
     public SSAVisitor(Program program) {
-        scopesHandler = new ScopesHandlerNew(new VariableIdsGenerator());
+        this(program, new VariableIdsGenerator());
+    }
+
+    public SSAVisitor(Program program, VariableIdsGenerator variableIdsGenerator) {
+        scopesHandler = new ScopesHandlerNew(variableIdsGenerator);
         for (VarDecl varDecl: program.getVarDecls()) {
             scopesHandler.addGlobalVariable(varDecl.getVarIdentifier().getVarName());
         }

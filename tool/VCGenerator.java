@@ -1,4 +1,7 @@
 package tool;
+import ast.BlockStmt;
+import ast.ProcedureDecl;
+import ast.Program;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import parser.SimpleCLexer;
@@ -10,17 +13,20 @@ import java.util.Map;
 
 public class VCGenerator {
 
-	private ProcedureDeclContext proc;
+	private Program program;
+	private ProcedureDecl proc;
 	private Map<String, Integer> globalsStack;
 	private VariableIdsGenerator idsGenerator;
 	private DebugUtil debugUtil;
 
 	private static final String VAR_ENTRY = "(declare-fun %s () (_ BitVec 32))\n";
 
-	public VCGenerator(ProcedureDeclContext proc,
+	public VCGenerator(Program program,
+					   ProcedureDecl proc,
 					   Map<String, Integer> globalsStack,
 					   VariableIdsGenerator idsGenerator,
 					   DebugUtil debugUtil) {
+		this.program = program;
 		this.proc = proc;
 		this.globalsStack = globalsStack;
 		this.idsGenerator = idsGenerator;
@@ -29,7 +35,7 @@ public class VCGenerator {
 	
 	public StringBuilder generateVC() {
 		// 1st step (Simple C -> SSA)
-		debugUtil.print("Translating method from Simple C -> Simple C SSA format");
+		/*debugUtil.print("Translating method from Simple C -> Simple C SSA format");
 		NodeResult methodResult = new SimpleCToSSA(globalsStack, idsGenerator).visit(proc);
 		debugUtil.print("Translation successful\n");
 		String resultCode = methodResult.code.toString();
@@ -43,8 +49,11 @@ public class VCGenerator {
 		SimpleCParser.ProgramContext programCtx = parser.program();
 		if(parser.getNumberOfSyntaxErrors() > 0) {
 			System.exit(1);
-		}
-		String vccCode = new SimpleCSSAToVC().visit(programCtx);
+		}*/
+		BlockStmt ssaBlock = (BlockStmt) new SSAVisitor(program, idsGenerator).visit(proc);
+		VCCVisitor visitorGen = new VCCVisitor();
+		ssaBlock.accept(visitorGen);
+		String vccCode = visitorGen.getSmtResult();
 
 
 		StringBuilder result = new StringBuilder("(set-logic QF_BV)\n");
