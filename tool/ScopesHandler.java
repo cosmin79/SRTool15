@@ -1,33 +1,29 @@
 package tool;
 
-import ast.ProcedureDecl;
-import parser.SimpleCParser.*;
+import ast.*;
 
 import java.util.*;
-
-import static tool.ScopesHandler.combineConditions;
 
 class ScopeInfo {
 
     private Map<String, Integer> variables;
 
-    private String conditions;
+    private Expr conditions;
 
     public ScopeInfo() {
-        variables = new HashMap<>();
-        conditions = new String();
+        this(new HashMap<>());
     }
 
     public ScopeInfo(Map<String, Integer> variables) {
         this.variables = variables;
-        conditions = new String();
+        conditions = NumberExpr.TRUE;
     }
 
     public Map<String, Integer> getVariables() {
         return variables;
     }
 
-    public String getConditions() {
+    public Expr getConditions() {
         return conditions;
     }
 
@@ -39,8 +35,8 @@ class ScopeInfo {
         variables.put(name, id);
     }
 
-    public void addCondition(String cond) {
-        conditions = combineConditions(conditions, cond);
+    public void addCondition(Expr cond) {
+        conditions = ScopesHandler.combineConditions(conditions, cond);
     }
 }
 
@@ -48,28 +44,7 @@ class MethodScope {
 
     private Map<String, Integer> globalsValue;
 
-    private List<RequiresContext> preConditionsNodes;
-
-    private List<EnsuresContext> postConditionsNodes;
-
-    private ExprContext returnStmt;
-
     private ProcedureDecl procedureDecl;
-
-    public MethodScope(ProcedureDeclContext ctx, Map<String, Integer> globalsValue) {
-        this.globalsValue = globalsValue;
-        returnStmt = ctx.returnExpr;
-        preConditionsNodes = new LinkedList<>();
-        postConditionsNodes = new LinkedList<>();
-
-        for (PrepostContext cond: ctx.contract) {
-            if (cond.requires() != null) {
-                preConditionsNodes.add(cond.requires());
-            } else if (cond.ensures() != null) {
-                postConditionsNodes.add(cond.ensures());
-            }
-        }
-    }
 
     public MethodScope(ProcedureDecl procedureDecl, Map<String, Integer> globalsValue) {
         this.globalsValue = globalsValue;
@@ -80,24 +55,14 @@ class MethodScope {
         return globalsValue.get(varName);
     }
 
-    public List<RequiresContext> getPreConditionsNodes() {
-        return preConditionsNodes;
-    }
-
-    public List<EnsuresContext> getPostConditionsNodes() {
-        return postConditionsNodes;
-    }
-
-    public ExprContext getReturnStmt() {
-        return returnStmt;
+    public ProcedureDecl getProcedureDecl() {
+        return procedureDecl;
     }
 }
 
 public class ScopesHandler {
 
     private static final String VAR_ID = "%s%d";
-
-    private static final String IMPLICATION_STMT = "!(%s) || %s";
 
     private Set<String> globalVariables;
 
@@ -107,7 +72,7 @@ public class ScopesHandler {
 
     private List<MethodScope> methodScopesStack;
 
-    private String assumptions;
+    private Expr assumptions;
 
     private VariableIdsGenerator freshIds;
 
@@ -119,7 +84,7 @@ public class ScopesHandler {
 
         this.freshIds = freshIds;
         methodScopesStack = new LinkedList<>();
-        assumptions = new String();
+        assumptions = NumberExpr.TRUE;
     }
 
     public ScopesHandler(VariableIdsGenerator freshIds) {
@@ -142,17 +107,9 @@ public class ScopesHandler {
         methodScopesStack.remove(0);
     }
 
-    public void pushStack() {
+    public ScopeInfo pushStack() {
         scopesStack.add(0, new ScopeInfo());
-    }
-
-    public void pushMethodsStack(ProcedureDeclContext ctx) {
-        Map<String, Integer> globalsValues = new HashMap<>();
-        for (String globalVar: globalVariables) {
-            globalsValues.put(globalVar, latestVarId(globalVar));
-        }
-
-        methodScopesStack.add(0, new MethodScope(ctx, globalsValues));
+        return peekScope();
     }
 
     public void pushMethodsStack(ProcedureDecl procedureDecl) {
@@ -178,17 +135,12 @@ public class ScopesHandler {
         globalVariables.add(name);
     }
 
-    public void addCondition(String condition) {
+    public void addCondition(Expr condition) {
         peekScope().addCondition(condition);
     }
 
-    public void addAssumption(String condition) {
-        String conditionGlobals = getConditionsGlobal();
-        if (!conditionGlobals.isEmpty()) {
-            condition = String.format(IMPLICATION_STMT, getConditionsGlobal(), condition);
-        }
-
-        assumptions = combineConditions(assumptions, condition);
+    public void addAssumption(Expr condition) {
+        assumptions = combineConditions(assumptions, implicationCondition(getConditionsGlobal(), condition));
     }
 
     private Integer latestVarId(String name) {
@@ -213,18 +165,16 @@ public class ScopesHandler {
         return latestId != null ? String.format(VAR_ID, name, latestId) : latestVar(name);
     }
 
-    public static String combineConditions(String cond1, String cond2) {
-        if (cond1.isEmpty()) {
-            return cond2;
-        } else if (cond2.isEmpty()) {
-            return cond1;
-        }
-
-        return String.format("%s && %s", cond1, cond2);
+    public static Expr combineConditions(Expr cond1, Expr cond2) {
+        return new BinaryExpr("&&", cond1, cond2);
     }
 
-    private String getConditionsGlobal() {
-        String allConds = new String();
+    public static Expr implicationCondition(Expr cond1, Expr cond2) {
+        return new BinaryExpr("||", new UnaryExpr("!", cond1), cond2);
+    }
+
+    private Expr getConditionsGlobal() {
+        Expr allConds = NumberExpr.TRUE;
         for (ScopeInfo scope: scopesStack) {
             allConds = combineConditions(allConds, scope.getConditions());
         }
@@ -232,25 +182,14 @@ public class ScopesHandler {
         return allConds;
     }
 
-    public String generateCondition(String condition) {
-        String allConditions = combineConditions(getConditionsGlobal(), assumptions);
-        if (!allConditions.isEmpty()) {
-            condition = String.format(IMPLICATION_STMT, allConditions, condition);
-        }
-
-        return condition;
+    public ProcedureDecl getEnclosingMethod() {
+        return peekMethodScope().getProcedureDecl();
     }
 
-    public List<RequiresContext> getEnclosingMethodPreconditions() {
-        return peekMethodScope().getPreConditionsNodes();
-    }
+    public Expr generateCondition(Expr condition) {
+        Expr allConditions = combineConditions(getConditionsGlobal(), assumptions);
 
-    public List<EnsuresContext> getEnclosingMethodPostconditions() {
-        return peekMethodScope().getPostConditionsNodes();
-    }
-
-    public ExprContext getEnclosingMethodReturnStmt() {
-        return peekMethodScope().getReturnStmt();
+        return implicationCondition(allConditions, condition);
     }
 
     public Integer getOldGlobalVariable(String varName) {

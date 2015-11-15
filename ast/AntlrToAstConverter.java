@@ -126,7 +126,7 @@ public class AntlrToAstConverter extends SimpleCBaseVisitor<Node> {
         BlockStmt thenBlock = (BlockStmt) visit(ctx.thenBlock);
         // create an empty block if there is no else branch to have a canonic "if then else" node
         BlockStmt elseBlock = ctx.elseBlock != null ?
-                (BlockStmt) visit(ctx.elseBlock) : new BlockStmt(new LinkedList<>());
+                (BlockStmt) visit(ctx.elseBlock) : new BlockStmt();
 
         return new IfStmt(condition, thenBlock, elseBlock);
     }

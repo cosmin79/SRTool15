@@ -35,28 +35,14 @@ public class VCGenerator {
 	}
 	
 	public StringBuilder generateVC() {
-		// 1st step (Simple C -> SSA)
-		/*debugUtil.print("Translating method from Simple C -> Simple C SSA format");
-		NodeResult methodResult = new SimpleCToSSA(globalsStack, idsGenerator).visit(proc);
-		debugUtil.print("Translation successful\n");
-		String resultCode = methodResult.code.toString();
-		debugUtil.print(String.format("See the code below\n%s\n", resultCode));
-
-		// 2nd step (SSA -> VC)
-		ANTLRInputStream input = new ANTLRInputStream(resultCode);
-		SimpleCLexer lexer = new SimpleCLexer(input);
-		CommonTokenStream tokens = new CommonTokenStream(lexer);
-		SimpleCParser parser = new SimpleCParser(tokens);
-		SimpleCParser.ProgramContext programCtx = parser.program();
-		if(parser.getNumberOfSyntaxErrors() > 0) {
-			System.exit(1);
-		}*/
+		// Transform method to SSA
 		BlockStmt ssaBlock = (BlockStmt) new SSAVisitor(program, idsGenerator).visit(proc);
-		debugUtil.print(new PrintVisitor().visit(ssaBlock));
+		debugUtil.print("Result after SSA visitor:\n" + new PrintVisitor().visit(ssaBlock));
+
+		// this visitor generates SMT code
 		VCCVisitor visitorGen = new VCCVisitor();
 		ssaBlock.accept(visitorGen);
 		String vccCode = visitorGen.getSmtResult();
-
 
 		StringBuilder result = new StringBuilder("(set-logic QF_BV)\n");
 		result.append("(set-option :produce-models true)\n");
@@ -65,7 +51,6 @@ public class VCGenerator {
 		result.append("(define-fun bvdiv ((x (_ BitVec 32)) (y (_ BitVec 32))) (_ BitVec 32)" +
 			"(ite (not (= y (_ bv0 32))) (bvsdiv x y) x ))\n");
 
-		// TODO: generate the meat of the VC
 		// add variables used throughout the program
 		for (String var: idsGenerator.listAllUsedVariables()) {
 			result.append(String.format(VAR_ENTRY, var));

@@ -9,14 +9,14 @@ import java.util.Set;
 
 public class SSAVisitor extends DefaultVisitor {
 
-    private ScopesHandlerNew scopesHandler;
+    private ScopesHandler scopesHandler;
 
     public SSAVisitor(Program program) {
         this(program, new VariableIdsGenerator());
     }
 
     public SSAVisitor(Program program, VariableIdsGenerator variableIdsGenerator) {
-        scopesHandler = new ScopesHandlerNew(variableIdsGenerator);
+        scopesHandler = new ScopesHandler(variableIdsGenerator);
         for (VarDecl varDecl: program.getVarDecls()) {
             scopesHandler.addGlobalVariable(varDecl.getVarIdentifier().getVarName());
         }
@@ -150,17 +150,16 @@ public class SSAVisitor extends DefaultVisitor {
         Expr condExpr = (Expr) ifStmt.getCondition().accept(this);
 
         // then branch
-        // TODO(ccarabet): maybe create a new stack here and keep that as a reference
-        scopesHandler.pushStack();
+        ScopeInfo thenScope = scopesHandler.pushStack();
         scopesHandler.addCondition(condExpr);
         BlockStmt thenBlock = (BlockStmt) ifStmt.getThenBlock().accept(this);
-        ScopeInfoNew thenScope = scopesHandler.popStack();
+        scopesHandler.popStack();
 
         // else branch
-        scopesHandler.pushStack();
+        ScopeInfo elseScope = scopesHandler.pushStack();
         scopesHandler.addCondition(new UnaryExpr("!", condExpr));
         BlockStmt elseBlock = (BlockStmt) ifStmt.getElseBlock().accept(this);
-        ScopeInfoNew elseScope = scopesHandler.popStack();
+        scopesHandler.popStack();
 
         List<Stmt> stmtList = new LinkedList<>();
         stmtList.add(thenBlock);
