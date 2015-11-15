@@ -2,6 +2,7 @@ package tool;
 import ast.BlockStmt;
 import ast.ProcedureDecl;
 import ast.Program;
+import ast.visitor.impl.PrintVisitor;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import parser.SimpleCLexer;
@@ -51,6 +52,7 @@ public class VCGenerator {
 			System.exit(1);
 		}*/
 		BlockStmt ssaBlock = (BlockStmt) new SSAVisitor(program, idsGenerator).visit(proc);
+		debugUtil.print(new PrintVisitor().visit(ssaBlock));
 		VCCVisitor visitorGen = new VCCVisitor();
 		ssaBlock.accept(visitorGen);
 		String vccCode = visitorGen.getSmtResult();

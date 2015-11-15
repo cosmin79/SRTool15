@@ -32,7 +32,7 @@ enum BinaryOperator {
 
     MUL(ArgType.INT, ArgType.INT, "(bvmul %s %s)"),
     DIV(ArgType.INT, ArgType.INT, "(bvdiv %s %s)"),
-    MOD(ArgType.INT, ArgType.INT, "bvsrem %s %s");
+    MOD(ArgType.INT, ArgType.INT, "(bvsrem %s %s)");
 
     ArgType argType;
     ArgType retType;

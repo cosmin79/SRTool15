@@ -135,6 +135,16 @@ public class SSAVisitor extends DefaultVisitor {
         return new VarRefExpr(new VarRef(new VarIdentifier(varName)));
     }
 
+    private Expr generateNewIfValue(Expr cond, String varThen, String varElse) {
+        if (varThen == null) {
+            return varRefExpr(varElse);
+        } else if (varElse == null) {
+            return varRefExpr(varThen);
+        }
+
+        return new TernExpr(cond, varRefExpr(varThen), varRefExpr(varElse));
+    }
+
     @Override
     public Object visit(IfStmt ifStmt) {
         Expr condExpr = (Expr) ifStmt.getCondition().accept(this);
@@ -163,7 +173,7 @@ public class SSAVisitor extends DefaultVisitor {
             String thenValue = scopesHandler.varFromGivenScopeOrGlobal(thenScope, modifiedVar);
             String elseValue = scopesHandler.varFromGivenScopeOrGlobal(elseScope, modifiedVar);
             // new value of variable
-            Expr newExpr = new TernExpr(condExpr, varRefExpr(thenValue), varRefExpr(elseValue));
+            Expr newExpr = generateNewIfValue(condExpr, thenValue, elseValue);
 
             // generate new label for variable
             scopesHandler.addVariable(modifiedVar);
