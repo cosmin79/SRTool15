@@ -10,6 +10,7 @@ import parser.SimpleCBaseVisitor;
 import parser.SimpleCParser.AssignStmtContext;
 import parser.SimpleCParser.BlockStmtContext;
 import parser.SimpleCParser.CallStmtContext;
+import parser.SimpleCParser.CandidateEnsuresContext;
 import parser.SimpleCParser.EnsuresContext;
 import parser.SimpleCParser.FormalParamContext;
 import parser.SimpleCParser.HavocStmtContext;
@@ -28,11 +29,11 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 	private Set<String> globals = new HashSet<>();
 
 	private HashSet<String> parameters = null;
-	
+
 	private List<Set<String>> localsStack = new ArrayList<>();
-	
+
 	private List<String> errors = new ArrayList<String>();
-	
+
 	private boolean inEnsures = false;
 
 	@Override
@@ -40,7 +41,7 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 		for(VarDeclContext varDecl : ctx.globals) {
 			globals.add(varDecl.ident.name.getText());
 		}
-		
+
 		for(ProcedureDeclContext proc : ctx.procedures) {
 			visit(proc);
 		}
@@ -56,11 +57,11 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 		if(localsStack.size() == 1 && parameters.contains(name)) {
 			error("Declaration of local variable " + name + " at line " + ctx.ident.name.getLine() + " in root procedure scope may not shadow the name of a parameter");
 		}
-		
+
 		peekLocalsStack().add(name);
 		return super.visitVarDecl(ctx);
 	}
-	
+
 	@Override
 	public Void visitBlockStmt(BlockStmtContext ctx) {
 		pushLocalsStack();
@@ -68,7 +69,7 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 		popLocalsStack();
 		return result;
 	}
-	
+
 	@Override
 	public Void visitProcedureDecl(ProcedureDeclContext ctx) {
 		String name = ctx.name.getText();
@@ -90,7 +91,7 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 		parameters = null;
 		return result;
 	}
-	
+
 	@Override
 	public Void visitEnsures(EnsuresContext ctx) {
 		inEnsures = true;
@@ -98,7 +99,15 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 		inEnsures = false;
 		return result;
 	}
-	
+
+	@Override
+	public Void visitCandidateEnsures(CandidateEnsuresContext ctx) {
+		inEnsures = true;
+		Void result = super.visitCandidateEnsures(ctx);
+		inEnsures = false;
+		return result;
+	}
+
 	@Override
 	public Void visitResultExpr(ResultExprContext ctx) {
 		if(!inEnsures) {
@@ -109,12 +118,12 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 
 	@Override
 	public Void visitOldExpr(parser.SimpleCParser.OldExprContext ctx) {
-		if(!globals.contains(ctx.arg.ident.name.getText())) {
+		if(!globals.contains(ctx.arg.ident.name.getText()) || parameters.contains(ctx.arg.ident.getText())) {
 			error("'\\old' applied to non-global variable at line " + ctx.oldTok.getLine());
 		}
 		return super.visitOldExpr(ctx);
 	}
-	
+
 	@Override
 	public Void visitCallStmt(CallStmtContext ctx) {
 		String name = ctx.callee.getText();
@@ -126,7 +135,7 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 		checkAssignmentToVar(ctx.lhs);
 		return super.visitCallStmt(ctx);
 	}
-	
+
 	@Override
 	public Void visitVarref(VarrefContext ctx) {
 		String name = ctx.ident.name.getText();
@@ -146,11 +155,11 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 		}
 		return foundLocally;
 	}
-		
+
 	private Set<String> peekLocalsStack() {
 		return localsStack.get(localsStack.size() - 1);
 	}
-	
+
 	private Set<String> popLocalsStack() {
 		return localsStack.remove(localsStack.size() - 1);
 	}
@@ -162,7 +171,7 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 	private void pushLocalsStack(Set<String> frame) {
 		localsStack.add(frame);
 	}
-		
+
 	public void resolve() {
 		for(String callee : expectedProcedures.keySet()) {
 			if(actualProcedures.containsKey(callee)) {
@@ -174,7 +183,7 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 			}
 		}
 	}
-	
+
 	@Override
 	public Void visitAssignStmt(AssignStmtContext ctx) {
 		checkAssignmentToVar(ctx.lhs);
@@ -193,7 +202,7 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 			error("Attempt to modify parameter " + receivingName + " at line " + var.ident.name.getLine());
 		}
 	}
-	
+
 	private void error(String errorString) {
 		errors.add(errorString);
 	}
@@ -205,7 +214,7 @@ public class Typechecker extends SimpleCBaseVisitor<Void> {
 	public Iterable<String> getErrors() {
 		return errors;
 	}
-	
+
 }
 
 

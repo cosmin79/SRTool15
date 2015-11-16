@@ -26,7 +26,11 @@ public class DefaultVisitor implements Visitor<Object> {
 
     @Override
     public Object visit(VarDecl varDecl) {
-        return new VarDecl((VarIdentifier) varDecl.getVarIdentifier().accept(this));
+        String varName = varDecl.getVarIdentifier().getVarName();
+        VarDecl newVarDecl = new VarDecl((VarIdentifier) varDecl.getVarIdentifier().accept(this));
+        newVarDecl.addModSet(varName);
+
+        return newVarDecl;
     }
 
     @Override
@@ -80,10 +84,13 @@ public class DefaultVisitor implements Visitor<Object> {
 
     @Override
     public Object visit(AssignStmt assignStmt) {
+        String varName = assignStmt.getLhsVar().getVarIdentifier().getVarName();
         Expr rhsExpr = (Expr) assignStmt.getRhsExpr().accept(this);
         VarRef lhsVar = (VarRef) assignStmt.getLhsVar().accept(this);
+        AssignStmt newAssignStmt = new AssignStmt(lhsVar, rhsExpr);
+        newAssignStmt.addModSet(varName);
 
-        return new AssignStmt(lhsVar, rhsExpr);
+        return newAssignStmt;
     }
 
     @Override
@@ -98,12 +105,17 @@ public class DefaultVisitor implements Visitor<Object> {
 
     @Override
     public Object visit(HavocStmt havocStmt) {
-        return new HavocStmt((VarRef) havocStmt.getVar().accept(this));
+        String varName = havocStmt.getVar().getVarIdentifier().getVarName();
+        HavocStmt newHavocStmt = new HavocStmt((VarRef) havocStmt.getVar().accept(this));
+        newHavocStmt.addModSet(varName);
+
+        return newHavocStmt;
     }
 
     @Override
     public Object visit(CallStmt callStmt) {
         String methodName = callStmt.getMethodName();
+        String varName = callStmt.getLhsVar().getVarIdentifier().getVarName();
 
         List<Expr> parameters = new LinkedList<>();
         for (Expr expr: callStmt.getParametersList()) {
@@ -111,8 +123,10 @@ public class DefaultVisitor implements Visitor<Object> {
         }
 
         VarRef lhsVar = (VarRef) callStmt.getLhsVar().accept(this);
+        CallStmt newCallStmt = new CallStmt(lhsVar, methodName, parameters);
+        newCallStmt.addModSet(varName);
 
-        return new CallStmt(lhsVar, methodName, parameters);
+        return newCallStmt;
     }
 
     @Override

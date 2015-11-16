@@ -1,10 +1,11 @@
 from os import listdir
 from functools import partial
 import subprocess
+import os
 
 cmd             = ["./srtool"]
-correctSuffix   = "./tests/correct/"
-incorrectSuffix = "./tests/incorrect/"
+correctSuffix   = "./tests/%s/correct/"
+incorrectSuffix = "./tests/%s/incorrect/"
 
 def appendSuffix(suffix, string) :
   return suffix + string
@@ -31,8 +32,11 @@ def runTests(expectedOuput, tests) :
 
 subprocess.call(["make"]);
 
-correctTests   = map(partial(appendSuffix, correctSuffix), listdir(correctSuffix))
-incorrectTests = map(partial(appendSuffix, incorrectSuffix), listdir(incorrectSuffix))
+correctTests = [correctSuffix % (folder) + file for folder in listdir("tests") if (os.path.isdir("tests/" + folder)) \
+                     for file in listdir(correctSuffix % (folder))]
+
+incorrectTests = [incorrectSuffix % (folder) + file for folder in listdir("tests") if (os.path.isdir("tests/" + folder)) \
+                for file in listdir(incorrectSuffix % (folder))]
 
 runTests("CORRECT", correctTests)
 runTests("INCORRECT", incorrectTests)

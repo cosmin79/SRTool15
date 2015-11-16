@@ -9,6 +9,7 @@ import java.util.Map;
 
 import ast.*;
 import ast.visitor.impl.DefaultVisitor;
+import ast.visitor.impl.LoopSummarisationVisitor;
 import ast.visitor.impl.PrintVisitor;
 import ast.visitor.impl.ShadowVisitor;
 import org.antlr.v4.runtime.ANTLRInputStream;
@@ -70,24 +71,18 @@ public class SRTool {
 		// convert ANTLR Program node to our own type of Program node
 		Program program = (Program) new AntlrToAstConverter().visit(ctx);
 
+		// apply loop summarisation
+		program = (Program) new LoopSummarisationVisitor().visit(program);
+		debugUtil.print("Code after loop summarisation is applied:\n" + new PrintVisitor().visit(program));
+
 		// apply variable shadow removal
 		program = (Program) new ShadowVisitor(program).visit(program);
 		debugUtil.print("Code after shadow visiting is applied:\n" + new PrintVisitor().visit(program));
 
-		// create a new handler for variable ids that is going to be shared across classes
-		VariableIdsGenerator idsGenerator = new VariableIdsGenerator();
-
-		// record the global variables here in a stack (all those variables have id 0 initially)
-		Map<String, Integer> globalsStack = new HashMap<>();
-		for (VarDecl varDecl: program.getVarDecls()) {
-			String varName = varDecl.getVarIdentifier().getVarName();
-			globalsStack.put(varName, idsGenerator.generateFresh(varName));
-		}
-
 		//assert ctx.procedures.size() == 1; // For Part 1 of the coursework, this can be assumed
 		// Check each procedure by applying summarisation techniques for any method calls
 		for(ProcedureDecl proc : program.getProcedureDecls()) {
-			VCGenerator vcgen = new VCGenerator(program, proc, globalsStack, idsGenerator, debugUtil);
+			VCGenerator vcgen = new VCGenerator(program, proc, debugUtil);
 			String vc = vcgen.generateVC().toString();
 
 			ProcessExec process = new ProcessExec("./z3", "-smt2", "-in");

@@ -16,26 +16,21 @@ public class VCGenerator {
 
 	private Program program;
 	private ProcedureDecl proc;
-	private Map<String, Integer> globalsStack;
-	private VariableIdsGenerator idsGenerator;
 	private DebugUtil debugUtil;
 
 	private static final String VAR_ENTRY = "(declare-fun %s () (_ BitVec 32))\n";
 
 	public VCGenerator(Program program,
 					   ProcedureDecl proc,
-					   Map<String, Integer> globalsStack,
-					   VariableIdsGenerator idsGenerator,
 					   DebugUtil debugUtil) {
 		this.program = program;
 		this.proc = proc;
-		this.globalsStack = globalsStack;
-		this.idsGenerator = idsGenerator;
 		this.debugUtil = debugUtil;
 	}
 	
 	public StringBuilder generateVC() {
 		// Transform method to SSA
+		VariableIdsGenerator idsGenerator = new VariableIdsGenerator();
 		BlockStmt ssaBlock = (BlockStmt) new SSAVisitor(program, idsGenerator).visit(proc);
 		debugUtil.print("Result after SSA visitor:\n" + new PrintVisitor().visit(ssaBlock));
 
