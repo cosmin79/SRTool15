@@ -1,7 +1,5 @@
 package tool;
-import ast.BlockStmt;
-import ast.ProcedureDecl;
-import ast.Program;
+import ast.*;
 import ast.visitor.impl.PrintVisitor;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -10,15 +8,29 @@ import parser.SimpleCParser;
 import parser.SimpleCParser.ProcedureDeclContext;
 
 import java.io.FileInputStream;
-import java.util.Map;
+import java.util.*;
 
 public class VCGenerator {
 
-	private Program program;
-	private ProcedureDecl proc;
-	private DebugUtil debugUtil;
+	private static final String SPACE = " ";
 
 	private static final String VAR_ENTRY = "(declare-fun %s () (_ BitVec 32))\n";
+
+	private static final String BOOL_VAR_ENTRY = "(declare-fun %s () Bool)\n";
+
+	private static final String ASSERT_BOOLEAN = "(assert (= %s %s))\n";
+
+	private static final String BOOL_NAME = "prop";
+
+	private static final String NOT_AND_ASSERT = "(assert (not (and %s)))\n";
+
+	private static final String NOT_ASSERT = "(assert (not %s))\n";
+
+	private Program program;
+
+	private ProcedureDecl proc;
+
+	private DebugUtil debugUtil;
 
 	public VCGenerator(Program program,
 					   ProcedureDecl proc,
@@ -37,7 +49,6 @@ public class VCGenerator {
 		// this visitor generates SMT code
 		VCCVisitor visitorGen = new VCCVisitor();
 		ssaBlock.accept(visitorGen);
-		String vccCode = visitorGen.getSmtResult();
 
 		StringBuilder result = new StringBuilder("(set-logic QF_BV)\n");
 		result.append("(set-option :produce-models true)\n");
@@ -50,10 +61,46 @@ public class VCGenerator {
 		for (String var: idsGenerator.listAllUsedVariables()) {
 			result.append(String.format(VAR_ENTRY, var));
 		}
-		// add translation done above
-		result.append(vccCode + "\n");
+
+		// add facts known
+		for (String fact: visitorGen.getFacts()) {
+			result.append(fact);
+		}
+
+		// add boolean variable declarations
+		Map<String, String> booleanToCond = new LinkedHashMap<>();
+		Map<AssertStmt, String> assertToBoolean = new LinkedHashMap<>();
+		for (Map.Entry<AssertStmt, String> entryAssert: visitorGen.getAssertConditions().entrySet()) {
+			String newVar = String.format("%s%d", BOOL_NAME, idsGenerator.generateFresh(BOOL_NAME));
+			result.append(String.format(BOOL_VAR_ENTRY, newVar));
+			booleanToCond.put(newVar, entryAssert.getValue());
+			assertToBoolean.put(entryAssert.getKey(), newVar);
+		}
+
+		// match boolean variables with assertions
+		for (Map.Entry<String, String> entry: booleanToCond.entrySet()) {
+			result.append(String.format(ASSERT_BOOLEAN, entry.getKey(),
+					String.format(SmtUtil.TO_BOOL_EXPR, entry.getValue())));
+		}
+
+		// space separated cond
+		StringBuilder sb = new StringBuilder();
+		for (String boolCond: booleanToCond.keySet()) {
+			sb.append(boolCond + SPACE);
+		}
+		String spaceSepCond = sb.toString();
+
+		// add final cond
+		if (booleanToCond.isEmpty()) {
+			result.append(String.format(NOT_ASSERT, "true"));
+		} else {
+			result.append(String.format(NOT_AND_ASSERT, "true " + spaceSepCond));
+		}
 
 		result.append("\n(check-sat)\n");
+		if (!booleanToCond.isEmpty()) {
+			result.append(String.format("(get-value (%s))\n", spaceSepCond));
+		}
 
 		debugUtil.print("Returned SMT query:\n\n" + result.toString() + "\n");
 		return result;

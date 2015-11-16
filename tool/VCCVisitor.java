@@ -3,8 +3,10 @@ package tool;
 import ast.*;
 import ast.visitor.impl.DefaultVisitor;
 
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 public class VCCVisitor extends DefaultVisitor {
 
@@ -16,32 +18,19 @@ public class VCCVisitor extends DefaultVisitor {
 
     private List<String> facts;
 
-    private List<String> assertConditions;
+    private Map<AssertStmt, String> assertConditions;
 
     public VCCVisitor() {
-        assertConditions = new LinkedList<>();
-        assertConditions.add(TRUE_EXPR);
+        assertConditions = new LinkedHashMap<>();
         facts = new LinkedList<>();
     }
 
-    public String getSmtResult() {
-        StringBuilder sb = new StringBuilder();
-        for (String fact: facts) {
-            sb.append(fact);
-        }
-        sb.append("\n");
+    public List<String> getFacts() {
+        return facts;
+    }
 
-        if (!assertConditions.isEmpty()) {
-            String andAssertions = assertConditions.get(0);
-            for (int i = 1; i < assertConditions.size(); i++) {
-                andAssertions = SmtUtil.applyBinary("&&", andAssertions, assertConditions.get(i));
-            }
-            andAssertions = String.format(SmtUtil.TO_BOOL_EXPR, andAssertions);
-
-            sb.append(String.format("(assert (not %s))", andAssertions));
-        }
-
-        return sb.toString();
+    public Map<AssertStmt, String> getAssertConditions() {
+        return assertConditions;
     }
 
     @Override
@@ -55,7 +44,7 @@ public class VCCVisitor extends DefaultVisitor {
 
     @Override
     public String visit(AssertStmt assertStmt) {
-        assertConditions.add((String) assertStmt.getCondition().accept(this));
+        assertConditions.put(assertStmt, (String) assertStmt.getCondition().accept(this));
 
         return "";
     }

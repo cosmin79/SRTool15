@@ -21,7 +21,7 @@ import util.ProcessTimeoutException;
 
 public class SRTool {
 
-    private static final int TIMEOUT = 10;
+    private static final int TIMEOUT = 30;
 
 	private static String readFile(String path, Charset encoding) throws IOException {
 		byte[] encoded = Files.readAllBytes(Paths.get(path));
