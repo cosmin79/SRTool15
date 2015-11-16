@@ -8,10 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import ast.*;
-import ast.visitor.impl.DefaultVisitor;
-import ast.visitor.impl.LoopSummarisationVisitor;
-import ast.visitor.impl.PrintVisitor;
-import ast.visitor.impl.ShadowVisitor;
+import ast.visitor.impl.*;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 
@@ -71,15 +68,19 @@ public class SRTool {
 		// convert ANTLR Program node to our own type of Program node
 		Program program = (Program) new AntlrToAstConverter().visit(ctx);
 
-		// apply loop summarisation
-		program = (Program) new LoopSummarisationVisitor().visit(program);
-		debugUtil.print("Code after loop summarisation is applied:\n" + new PrintVisitor().visit(program));
-
 		// apply variable shadow removal
 		program = (Program) new ShadowVisitor(program).visit(program);
 		debugUtil.print("Code after shadow visiting is applied:\n" + new PrintVisitor().visit(program));
 
-		//assert ctx.procedures.size() == 1; // For Part 1 of the coursework, this can be assumed
+		// apply method summarisation (when calls occur) ; calling default visitor once to populate modSet
+		program = (Program) new DefaultVisitor().visit(program);
+		program = (Program) new MethodSummarisationVisitor(program).visit(program);
+		debugUtil.print("Code after method summarisation is applied:\n" + new PrintVisitor().visit(program));
+
+		// apply loop summarisation
+		program = (Program) new LoopSummarisationVisitor().visit(program);
+		debugUtil.print("Code after loop summarisation is applied:\n" + new PrintVisitor().visit(program));
+
 		// Check each procedure by applying summarisation techniques for any method calls
 		for(ProcedureDecl proc : program.getProcedureDecls()) {
 			VCGenerator vcgen = new VCGenerator(program, proc, debugUtil);

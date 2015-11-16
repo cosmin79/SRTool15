@@ -34,7 +34,7 @@ public class PrintVisitor implements Visitor {
 
     private static final String METHOD_ANTET = "int %s(%s)\n";
 
-    private static final String POSTCONDITION = "precondition: %s";
+    private static final String POSTCONDITION = "postcondition: %s";
 
     private static final String CANDIDATE_POSTCONDITION = "candidate postcondition: %s";
 
