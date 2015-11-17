@@ -21,8 +21,6 @@ import util.ProcessTimeoutException;
 
 public class SRTool {
 
-    private static final int TIMEOUT = 30;
-
 	private static String readFile(String path, Charset encoding) throws IOException {
 		byte[] encoded = Files.readAllBytes(Paths.get(path));
 		return new String(encoded, encoding);
@@ -81,34 +79,19 @@ public class SRTool {
 		program = (Program) new LoopSummarisationVisitor().visit(program);
 		debugUtil.print("Code after loop summarisation is applied:\n" + new PrintVisitor().visit(program));
 
-		// Check each procedure by applying summarisation techniques for any method calls
+		MethodVerifier methodVerifier = new MethodVerifier(program, debugUtil);
 		for(ProcedureDecl proc : program.getProcedureDecls()) {
-			VCGenerator vcgen = new VCGenerator(program, proc, debugUtil);
-			String vc = vcgen.generateVC().toString();
+			SMTResult result = methodVerifier.verifyMethod(proc);
 
-			ProcessExec process = new ProcessExec("./z3", "-smt2", "-in");
-			String queryResult = "";
-			try {
-				queryResult = process.execute(vc, TIMEOUT);
-			} catch (ProcessTimeoutException e) {
+			if (result.getReturnCode() == SMTReturnCode.UNKNOWN) {
 				System.out.println("UNKNOWN");
 				System.exit(1);
-			}
-			
-			if (queryResult.startsWith("sat")) {
+			} else if (result.getReturnCode() == SMTReturnCode.INCORRECT) {
 				System.out.println("INCORRECT");
 				System.exit(0);
 			}
-			
-			if (!queryResult.startsWith("unsat")) {
-				System.out.println("UNKNOWN");
-				System.out.println(queryResult);
-				System.exit(1);
-			}
 		}
-		
+
 		System.out.println("CORRECT");
-		System.exit(0);
-		
     }
 }

@@ -1,14 +1,31 @@
 package tool;
 import ast.*;
 import ast.visitor.impl.PrintVisitor;
-import org.antlr.v4.runtime.ANTLRInputStream;
-import org.antlr.v4.runtime.CommonTokenStream;
-import parser.SimpleCLexer;
-import parser.SimpleCParser;
-import parser.SimpleCParser.ProcedureDeclContext;
 
-import java.io.FileInputStream;
 import java.util.*;
+
+class VCResult {
+
+	private String query;
+
+	// Remember the last line in the SMT query is of the form:
+	// (assert (not (and cond1 cond2 .. condK)), where condI comes from an assert condition
+	// this map matches condI to the right AssertNode in the last AST
+	private Map<String, AssertStmt> booleanToAssert;
+
+	public VCResult(String query, Map<String, AssertStmt> booleanToAssert) {
+		this.query = query;
+		this.booleanToAssert = booleanToAssert;
+	}
+
+	public String getQuery() {
+		return query;
+	}
+
+	public Map<String, AssertStmt> getBooleanToAssert() {
+		return booleanToAssert;
+	}
+}
 
 public class VCGenerator {
 
@@ -40,7 +57,7 @@ public class VCGenerator {
 		this.debugUtil = debugUtil;
 	}
 	
-	public StringBuilder generateVC() {
+	public VCResult generateVC() {
 		// Transform method to SSA
 		VariableIdsGenerator idsGenerator = new VariableIdsGenerator();
 		BlockStmt ssaBlock = (BlockStmt) new SSAVisitor(program, idsGenerator).visit(proc);
@@ -69,12 +86,12 @@ public class VCGenerator {
 
 		// add boolean variable declarations
 		Map<String, String> booleanToCond = new LinkedHashMap<>();
-		Map<AssertStmt, String> assertToBoolean = new LinkedHashMap<>();
+		Map<String, AssertStmt> booleanToAssert = new LinkedHashMap<>();
 		for (Map.Entry<AssertStmt, String> entryAssert: visitorGen.getAssertConditions().entrySet()) {
 			String newVar = String.format("%s%d", BOOL_NAME, idsGenerator.generateFresh(BOOL_NAME));
 			result.append(String.format(BOOL_VAR_ENTRY, newVar));
 			booleanToCond.put(newVar, entryAssert.getValue());
-			assertToBoolean.put(entryAssert.getKey(), newVar);
+			booleanToAssert.put(newVar, entryAssert.getKey());
 		}
 
 		// match boolean variables with assertions
@@ -103,7 +120,8 @@ public class VCGenerator {
 		}
 
 		debugUtil.print("Returned SMT query:\n\n" + result.toString() + "\n");
-		return result;
+
+		return new VCResult(result.toString(), booleanToAssert);
 	}
 
 }
