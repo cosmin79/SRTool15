@@ -1,5 +1,6 @@
 CLASSES = \
 	*/*.java \
+	tool/strategy/*.java \
 	ast/*/*.java \
 	ast/*/*/*.java
 

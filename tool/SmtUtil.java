@@ -1,7 +1,9 @@
 package tool;
 
-import java.util.HashMap;
-import java.util.Map;
+import ast.AssertStmt;
+import ast.Node;
+
+import java.util.*;
 
 enum ArgType {
     INT,
@@ -137,5 +139,19 @@ public class SmtUtil {
 
     public static String applyTern(String cond, String arg1, String arg2) {
         return String.format(TERN_EXPR, cond, arg1, arg2);
+    }
+
+    public static Set<Node> getAllFailedNodes(Map<Node, Node> predMap, SMTResult smtResult) {
+        Set<Node> result = new HashSet<>();
+        Iterator<AssertStmt> assertStmtIterator = smtResult.getFailedAsserts().iterator();
+        while (assertStmtIterator.hasNext()) {
+            Node stmt = assertStmtIterator.next();
+            while (stmt != null) {
+                result.add(stmt);
+                stmt = predMap.get(stmt);
+            }
+        }
+
+        return result;
     }
 }
