@@ -65,6 +65,7 @@ public class SRTool {
 
 		// convert ANTLR Program node to our own type of Program node
 		Program program = (Program) new AntlrToAstConverter().visit(ctx);
+		program = (Program) new DefaultVisitor().visit(program);
 
 		// This execution plan object will attempt to try multiple strategies before deciding
 		new ExecutionPlan(program, debugUtil).verifyProgram();

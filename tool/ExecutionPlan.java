@@ -5,7 +5,6 @@ import ast.Program;
 import ast.visitor.impl.*;
 
 import java.io.IOException;
-import java.util.LinkedList;
 import java.util.List;
 
 public class ExecutionPlan {
@@ -56,7 +55,7 @@ public class ExecutionPlan {
                 decide(returnCode);
             } else {
                 // hopefully apply another strategy ?
-                decide(SMTReturnCode.INCORRECT);
+                decide(SMTReturnCode.CORRECT);
             }
         }
     }
@@ -100,6 +99,7 @@ public class ExecutionPlan {
 
         // apply variable shadow removal
         program = (Program) new ShadowVisitor(program).visit(program);
+
         debugUtil.print("Code after shadow visiting is applied:\n" + new PrintVisitor().visit(program));
 
         MethodVerifier methodVerifier = new MethodVerifier(program, debugUtil);
