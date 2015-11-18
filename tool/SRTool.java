@@ -66,32 +66,7 @@ public class SRTool {
 		// convert ANTLR Program node to our own type of Program node
 		Program program = (Program) new AntlrToAstConverter().visit(ctx);
 
-		// apply variable shadow removal
-		program = (Program) new ShadowVisitor(program).visit(program);
-		debugUtil.print("Code after shadow visiting is applied:\n" + new PrintVisitor().visit(program));
-
-		// apply method summarisation (when calls occur) ; calling default visitor once to populate modSet
-		program = (Program) new DefaultVisitor().visit(program);
-		program = (Program) new MethodSummarisationVisitor(program).visit(program);
-		debugUtil.print("Code after method summarisation is applied:\n" + new PrintVisitor().visit(program));
-
-		// apply loop summarisation
-		program = (Program) new LoopSummarisationVisitor().visit(program);
-		debugUtil.print("Code after loop summarisation is applied:\n" + new PrintVisitor().visit(program));
-
-		MethodVerifier methodVerifier = new MethodVerifier(program, debugUtil);
-		for(ProcedureDecl proc : program.getProcedureDecls()) {
-			SMTResult result = methodVerifier.verifyMethod(proc);
-
-			if (result.getReturnCode() == SMTReturnCode.UNKNOWN) {
-				System.out.println("UNKNOWN");
-				System.exit(1);
-			} else if (result.getReturnCode() == SMTReturnCode.INCORRECT) {
-				System.out.println("INCORRECT");
-				System.exit(0);
-			}
-		}
-
-		System.out.println("CORRECT");
-    }
+		// This execution plan object will attempt to try multiple strategies before deciding
+		new ExecutionPlan(program, debugUtil).verifyProgram();
+	}
 }

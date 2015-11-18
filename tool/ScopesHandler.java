@@ -62,7 +62,7 @@ class MethodScope {
 
 public class ScopesHandler {
 
-    private static final String VAR_ID = "%s%d";
+    private static final String VAR_ID = "%sa%d";
 
     private Set<String> globalVariables;
 

@@ -7,7 +7,7 @@ import java.util.Map;
 
 public class VariableIdsGenerator {
 
-    private static final String VAR_FORMAT = "%s%d";
+    private static final String VAR_FORMAT = "%sa%d";
 
     private Map<String, Integer> freshIds;
 

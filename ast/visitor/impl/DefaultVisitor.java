@@ -3,10 +3,22 @@ package ast.visitor.impl;
 import ast.*;
 import ast.visitor.Visitor;
 
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 public class DefaultVisitor implements Visitor<Object> {
+
+    private Map<Node, Node> predMap;
+
+    public DefaultVisitor() {
+        predMap = new HashMap<>();
+    }
+
+    public Map<Node, Node> getPredMap() {
+        return predMap;
+    }
 
     @Override
     public Object visit(Program program) {
@@ -64,22 +76,36 @@ public class DefaultVisitor implements Visitor<Object> {
 
     @Override
     public Object visit(Precondition precondition) {
-        return new Precondition((Expr) precondition.getCondition().accept(this));
+        Precondition newPrecondition = new Precondition((Expr) precondition.getCondition().accept(this));
+        predMap.put(newPrecondition, precondition);
+
+        return newPrecondition;
     }
 
     @Override
     public Object visit(Postcondition postcondition) {
-        return new Postcondition((Expr) postcondition.getCondition().accept(this));
+        Postcondition newPostcondition = new Postcondition((Expr) postcondition.getCondition().accept(this));
+        predMap.put(newPostcondition, postcondition);
+
+        return newPostcondition;
     }
 
     @Override
     public Object visit(CandidatePrecondition candidatePrecondition) {
-        return new CandidatePrecondition((Expr) candidatePrecondition.getCondition().accept(this));
+        CandidatePrecondition newCandidatePrecondition
+                = new CandidatePrecondition((Expr) candidatePrecondition.getCondition().accept(this));
+        predMap.put(newCandidatePrecondition, candidatePrecondition);
+
+        return newCandidatePrecondition;
     }
 
     @Override
     public Object visit(CandidatePostcondition candidatePostcondition) {
-        return new CandidatePostcondition((Expr) candidatePostcondition.getCondition().accept(this));
+        CandidatePostcondition newCandidatePostCondition
+                = new CandidatePostcondition((Expr) candidatePostcondition.getCondition().accept(this));
+        predMap.put(newCandidatePostCondition, candidatePostcondition);
+
+        return newCandidatePostCondition;
     }
 
     @Override
@@ -95,7 +121,10 @@ public class DefaultVisitor implements Visitor<Object> {
 
     @Override
     public Object visit(AssertStmt assertStmt) {
-        return new AssertStmt((Expr) assertStmt.getCondition().accept(this));
+        AssertStmt newAssertStmt = new AssertStmt((Expr) assertStmt.getCondition().accept(this));
+        predMap.put(newAssertStmt, assertStmt);
+
+        return newAssertStmt;
     }
 
     @Override
@@ -163,12 +192,19 @@ public class DefaultVisitor implements Visitor<Object> {
 
     @Override
     public Object visit(Invariant invariant) {
-        return new Invariant((Expr) invariant.getCondition().accept(this));
+        Invariant newInvariant = new Invariant((Expr) invariant.getCondition().accept(this));
+        predMap.put(newInvariant, invariant);
+
+        return newInvariant;
     }
 
     @Override
     public Object visit(CandidateInvariant candidateInvariant) {
-        return new CandidateInvariant((Expr) candidateInvariant.getCondition().accept(this));
+        CandidateInvariant newCandidateInvariant
+                = new CandidateInvariant((Expr) candidateInvariant.getCondition().accept(this));
+        predMap.put(newCandidateInvariant, candidateInvariant);
+
+        return newCandidateInvariant;
     }
 
     @Override
