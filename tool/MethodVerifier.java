@@ -1,6 +1,7 @@
 package tool;
 
 import ast.AssertStmt;
+import ast.Node;
 import ast.ProcedureDecl;
 import ast.Program;
 import util.ProcessExec;
@@ -12,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 enum SMTReturnCode {
-    CORRECT, INCORRECT, UNKNOWN;
+    CORRECT, MAYBE_COREECT, INCORRECT, UNKNOWN;
 }
 
 class SMTResult {
@@ -49,13 +50,16 @@ public class MethodVerifier {
 
     private final DebugUtil debugUtil;
 
-    public MethodVerifier(Program program, DebugUtil debugUtil) {
+    private Map<Node, Node> predMap;
+
+    public MethodVerifier(Map<Node, Node> predMap, Program program, DebugUtil debugUtil) {
+        this.predMap = predMap;
         this.program = program;
         this.debugUtil = debugUtil;
     }
 
     public SMTResult verifyMethod(ProcedureDecl procedureDecl) throws IOException, InterruptedException {
-        VCGenerator vcgen = new VCGenerator(program, procedureDecl, debugUtil);
+        VCGenerator vcgen = new VCGenerator(program, procedureDecl, debugUtil, predMap);
         VCResult vcResult = vcgen.generateVC();
 
         ProcessExec process = new ProcessExec("./z3", "-smt2", "-in");

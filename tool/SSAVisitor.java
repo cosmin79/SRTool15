@@ -5,17 +5,15 @@ import ast.visitor.impl.DefaultVisitor;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class SSAVisitor extends DefaultVisitor {
 
     private ScopesHandler scopesHandler;
 
-    public SSAVisitor(Program program) {
-        this(program, new VariableIdsGenerator());
-    }
-
-    public SSAVisitor(Program program, VariableIdsGenerator variableIdsGenerator) {
+    public SSAVisitor(Map<Node, Node> predMap, Program program, VariableIdsGenerator variableIdsGenerator) {
+        super(predMap);
         scopesHandler = new ScopesHandler(variableIdsGenerator);
         for (VarDecl varDecl: program.getVarDecls()) {
             scopesHandler.addGlobalVariable(varDecl.getVarIdentifier().getVarName());
@@ -60,7 +58,9 @@ public class SSAVisitor extends DefaultVisitor {
         for (PrePostCondition prePostCondition: procedureDecl.getPrePostConditions()) {
             if (prePostCondition instanceof Postcondition) {
                 Expr newCond = scopesHandler.generateCondition((Expr) prePostCondition.accept(this));
-                stmts.add(new AssertStmt(newCond));
+                AssertStmt assertPostCond = new AssertStmt(newCond);
+                predMap.put(assertPostCond, prePostCondition);
+                stmts.add(assertPostCond);
             }
         }
 
@@ -107,8 +107,10 @@ public class SSAVisitor extends DefaultVisitor {
     @Override
     public Object visit(AssertStmt assertStmt) {
         Expr condExpr = (Expr) assertStmt.getCondition().accept(this);
+        AssertStmt newAssertStmt = new AssertStmt(scopesHandler.generateCondition(condExpr));
+        predMap.put(newAssertStmt, assertStmt);
 
-        return new AssertStmt(scopesHandler.generateCondition(condExpr));
+        return newAssertStmt;
     }
 
     @Override

@@ -13,6 +13,8 @@ public class BlockStmt extends Stmt {
         this.stmts = stmts;
         for (Stmt stmt: stmts) {
             addModSet(stmt);
+            addPotentialFailures(stmt);
+            addLoops(stmt);
         }
     }
 

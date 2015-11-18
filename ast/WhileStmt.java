@@ -15,8 +15,14 @@ public class WhileStmt extends Stmt {
     public WhileStmt(Expr condition, List<LoopInvariant> loopInvariantsList, BlockStmt body) {
         this.condition = condition;
         this.loopInvariantList = loopInvariantsList;
+        for (LoopInvariant loopInvariant: loopInvariantsList) {
+            addPotentialFailures(loopInvariant);
+        }
         this.body = body;
         addModSet(body);
+        addPotentialFailures(body);
+        addLoop(this);
+        addLoops(body);
     }
 
     public Expr getCondition() {

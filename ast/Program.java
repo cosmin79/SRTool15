@@ -16,6 +16,8 @@ public class Program extends Node {
         this.procedureDecls = procedureDecls;
         for (ProcedureDecl procedureDecl: procedureDecls) {
             addModSet(procedureDecl);
+            addPotentialFailures(procedureDecl);
+            addLoops(procedureDecl);
         }
     }
 

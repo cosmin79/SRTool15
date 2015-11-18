@@ -25,10 +25,15 @@ public class ProcedureDecl extends Node {
         this.methodName = methodName;
         this.paramList = paramList;
         this.prePostConditions = prePostConditions;
+        for (PrePostCondition prePostCondition: prePostConditions) {
+            addPotentialFailures(prePostCondition);
+        }
         this.stmts = stmts;
         this.returnExpr = returnExpr;
         for (Stmt stmt: stmts) {
             addModSet(stmt);
+            addPotentialFailures(stmt);
+            addLoops(stmt);
         }
     }
 

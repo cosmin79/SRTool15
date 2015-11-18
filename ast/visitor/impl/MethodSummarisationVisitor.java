@@ -20,7 +20,8 @@ public class MethodSummarisationVisitor extends DefaultVisitor {
 
     boolean isInsideCallStmt;
 
-    public MethodSummarisationVisitor(Program program) {
+    public MethodSummarisationVisitor(Map<Node, Node> pred, Program program) {
+        super(pred);
         this.program = program;
         methods = new HashMap<>();
         for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
@@ -61,7 +62,9 @@ public class MethodSummarisationVisitor extends DefaultVisitor {
         for (PrePostCondition prePostCondition: calleeMethod.getPrePostConditions()) {
             if (prePostCondition instanceof Precondition) {
                 Precondition newPrecondition = (Precondition) prePostCondition.accept(this);
-                stmtList.add(new AssertStmt(newPrecondition.getCondition()));
+                AssertStmt assertPrecond = new AssertStmt(newPrecondition.getCondition());
+                predMap.put(assertPrecond, prePostCondition);
+                stmtList.add(assertPrecond);
             }
         }
 

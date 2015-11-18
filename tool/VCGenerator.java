@@ -49,18 +49,22 @@ public class VCGenerator {
 
 	private DebugUtil debugUtil;
 
+	private Map<Node, Node> predMap;
+
 	public VCGenerator(Program program,
 					   ProcedureDecl proc,
-					   DebugUtil debugUtil) {
+					   DebugUtil debugUtil,
+					   Map<Node, Node> predMap) {
 		this.program = program;
 		this.proc = proc;
 		this.debugUtil = debugUtil;
+		this.predMap = predMap;
 	}
 	
 	public VCResult generateVC() {
 		// Transform method to SSA
 		VariableIdsGenerator idsGenerator = new VariableIdsGenerator();
-		BlockStmt ssaBlock = (BlockStmt) new SSAVisitor(program, idsGenerator).visit(proc);
+		BlockStmt ssaBlock = (BlockStmt) new SSAVisitor(predMap, program, idsGenerator).visit(proc);
 		debugUtil.print("Result after SSA visitor:\n" + new PrintVisitor().visit(ssaBlock));
 
 		// this visitor generates SMT code

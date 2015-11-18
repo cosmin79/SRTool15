@@ -21,6 +21,8 @@ public class VCCVisitor extends DefaultVisitor {
     private Map<AssertStmt, String> assertConditions;
 
     public VCCVisitor() {
+        // this shouldn't have to update predMap at all ; so just pass it something else new
+        super(new LinkedHashMap<>());
         assertConditions = new LinkedHashMap<>();
         facts = new LinkedList<>();
     }

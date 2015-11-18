@@ -6,12 +6,14 @@ import tool.VariableIdsGenerator;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 public class ShadowVisitor extends DefaultVisitor {
 
     private ScopesHandler scopesHandler;
 
-    public ShadowVisitor(Program program) {
+    public ShadowVisitor(Map<Node, Node> predMap, Program program) {
+        super(predMap);
         scopesHandler = new ScopesHandler(new VariableIdsGenerator());
         for (VarDecl varDecl: program.getVarDecls()) {
             scopesHandler.addGlobalVariable(varDecl.getVarIdentifier().getVarName());

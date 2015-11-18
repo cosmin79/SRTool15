@@ -2,6 +2,9 @@ package ast;
 
 import ast.visitor.Visitor;
 
+import java.util.LinkedList;
+import java.util.List;
+
 public class AssumeStmt extends Stmt {
 
     private Expr condition;

@@ -16,6 +16,10 @@ public class IfStmt extends Stmt {
         this.elseBlock = elseBlock;
         addModSet(thenBlock);
         addModSet(elseBlock);
+        addPotentialFailures(thenBlock);
+        addPotentialFailures(elseBlock);
+        addLoops(thenBlock);
+        addLoops(elseBlock);
     }
 
     public Expr getCondition() {

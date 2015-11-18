@@ -10,14 +10,10 @@ import java.util.Map;
 
 public class DefaultVisitor implements Visitor<Object> {
 
-    private Map<Node, Node> predMap;
+    protected Map<Node, Node> predMap;
 
-    public DefaultVisitor() {
-        predMap = new HashMap<>();
-    }
-
-    public Map<Node, Node> getPredMap() {
-        return predMap;
+    public DefaultVisitor(Map<Node, Node> predMap) {
+        this.predMap = predMap;
     }
 
     @Override

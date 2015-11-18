@@ -8,6 +8,7 @@ public class Precondition extends PrePostCondition {
 
     public Precondition(Expr condition) {
         this.condition = condition;
+        addPotentialFailures(this);
     }
 
     public Expr getCondition() {
