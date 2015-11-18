@@ -68,6 +68,8 @@ public class SoundBMC {
     // This strategy uses sound BMC for loops. It attempts to prove the program is correct
     public SMTReturnCode run() throws IOException, InterruptedException {
         Map<Node, Node> predMap = new HashMap<>();
+        program = (Program) new ShadowVisitor(predMap, program).visit(program);
+        program = (Program) new DefaultVisitor(predMap).visit(program);
 
         // apply method summarisation (when calls occur)
         program = (Program) new MethodSummarisationVisitor(predMap, program).visit(program);

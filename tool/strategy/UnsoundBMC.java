@@ -3,10 +3,7 @@ package tool.strategy;
 import ast.Node;
 import ast.ProcedureDecl;
 import ast.Program;
-import ast.visitor.impl.BMCVisitor;
-import ast.visitor.impl.MethodSummarisationVisitor;
-import ast.visitor.impl.PrintVisitor;
-import ast.visitor.impl.ShadowVisitor;
+import ast.visitor.impl.*;
 import tool.DebugUtil;
 import tool.MethodVerifier;
 import tool.SMTResult;
@@ -33,6 +30,8 @@ public class UnsoundBMC {
     // It may give false positives. No false negatives though!
     public SMTReturnCode run() throws IOException, InterruptedException {
         Map<Node, Node> predMap = new HashMap<>();
+        program = (Program) new ShadowVisitor(predMap, program).visit(program);
+        program = (Program) new DefaultVisitor(predMap).visit(program);
 
         // apply method summarisation (when calls occur)
         program = (Program) new MethodSummarisationVisitor(predMap, program).visit(program);
