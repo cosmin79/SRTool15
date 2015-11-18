@@ -3,6 +3,7 @@ package tool;
 import ast.*;
 import ast.visitor.impl.*;
 import tool.strategy.LoopAndMethodSummary;
+import tool.strategy.SoundBMC;
 import tool.strategy.UnsoundBMC;
 
 import java.io.IOException;
@@ -56,7 +57,7 @@ public class ExecutionPlan {
                 decide(returnCode);
             } else {
                 // this applied sound BMC. We need a timeout version though as it might not terminate...
-                returnCode = new UnsoundBMC(cloneProgram(), debugUtil).run();
+                returnCode = new SoundBMC(cloneProgram(), debugUtil).run();
                 decide(returnCode);
                 // By the way, in this strategy we might loop forever :D
             }
