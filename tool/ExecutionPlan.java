@@ -2,6 +2,7 @@ package tool;
 
 import ast.*;
 import ast.visitor.impl.*;
+import tool.strategy.Houdini;
 import tool.strategy.LoopAndMethodSummary;
 import tool.strategy.SoundBMC;
 import tool.strategy.UnsoundBMC;
@@ -46,20 +47,29 @@ public class ExecutionPlan {
     }
 
     public void verifyProgram() throws IOException, InterruptedException {
-        // apply strategy 1. It yields no false positives!
+        //SMTReturnCode returnCode = new Houdini(cloneProgram(), debugUtil).run();
+        //decide(returnCode);
+
+        // Loop and method summary yields no false positives!
         SMTReturnCode returnCode = new LoopAndMethodSummary(cloneProgram(), debugUtil).run();
         if (returnCode != SMTReturnCode.INCORRECT) {
             decide(returnCode);
         } else {
-            // note that strategy 2 is looking for bugs. It yields no false negatives;
-            returnCode = new UnsoundBMC(cloneProgram(), debugUtil).run();
-            if (returnCode != SMTReturnCode.CORRECT) {
+            // Houdini yields no false positives!
+            returnCode = new Houdini(cloneProgram(), debugUtil).run();
+            if (returnCode != SMTReturnCode.INCORRECT) {
                 decide(returnCode);
             } else {
-                // this applied sound BMC. We need a timeout version though as it might not terminate...
-                returnCode = new SoundBMC(cloneProgram(), debugUtil).run();
-                decide(returnCode);
-                // By the way, in this strategy we might loop forever :D
+                // This is kind of stupid ; looking for a bug up to a particular depth. No false negatives though!
+                returnCode = new UnsoundBMC(cloneProgram(), debugUtil).run();
+                if (returnCode != SMTReturnCode.CORRECT) {
+                    decide(returnCode);
+                } else {
+                    // this applied sound BMC. We need a timeout version though as it might not terminate...
+                    // if it returns something it should be correct
+                    returnCode = new SoundBMC(cloneProgram(), debugUtil).run();
+                    decide(returnCode);
+                }
             }
         }
     }

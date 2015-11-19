@@ -11,6 +11,7 @@ public class AssertStmt extends Stmt {
     public AssertStmt(Expr condition) {
         this.condition = condition;
         isBMCStop = false;
+        addPotentialFailure(this);
     }
 
     public Expr getCondition() {

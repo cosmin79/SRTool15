@@ -54,8 +54,12 @@ public abstract class Node implements Visitable {
         modSet.addAll(other.getModSet());
     }
 
+    public void addPotentialFailure(Node node) {
+        potentialFailures.add(node);
+    }
+
     public void addPotentialFailures(Node other) {
-        potentialFailures.add(other);
+        potentialFailures.addAll(other.getPotentialFailures());
     }
 
     public void addLoops(Node other) { loops.addAll(other.getLoops()); }

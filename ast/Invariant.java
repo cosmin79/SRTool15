@@ -8,7 +8,7 @@ public class Invariant extends LoopInvariant {
 
     public Invariant(Expr condition) {
         this.condition = condition;
-        addPotentialFailures(this);
+        addPotentialFailure(this);
     }
 
     public Expr getCondition() {

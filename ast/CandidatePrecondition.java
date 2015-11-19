@@ -8,7 +8,7 @@ public class CandidatePrecondition extends PrePostCondition {
 
     public CandidatePrecondition(Expr condition) {
         this.condition = condition;
-        addPotentialFailures(this);
+        addPotentialFailure(this);
     }
 
     public Expr getCondition() {
