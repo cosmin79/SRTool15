@@ -13,44 +13,73 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class LoopAndMethodSummary {
+import java.util.concurrent.Callable;
 
-    private Program program;
+public class LoopAndMethodSummary implements Callable<SMTReturnCode> {
 
-    private DebugUtil debugUtil;
+  private Program program;
 
-    public LoopAndMethodSummary(Program program, DebugUtil debugUtil) {
-        this.program = program;
-        this.debugUtil = debugUtil;
+  private DebugUtil debugUtil;
+
+  public LoopAndMethodSummary(Program program, DebugUtil debugUtil) {
+    this.program = program;
+    this.debugUtil = debugUtil;
+  }
+
+  private boolean applyShadowVisitor(Map<Node, Node> predMap) {
+    program = (Program) new ShadowVisitor(predMap, program).visit(program);
+    program = (Program) new DefaultVisitor(predMap).visit(program);
+    debugUtil.print("Code after shadow visiting is applied:\n" + new PrintVisitor().visit(program));
+    return Thread.currentThread().isInterrupted();
+  }
+
+  private boolean applyMethodSummarisation(Map<Node, Node> predMap) {
+    program = (Program) new MethodSummarisationVisitor(predMap, program).visit(program);
+    debugUtil.print("Code after method summarisation is applied:\n" + new PrintVisitor().visit(program));
+    return Thread.currentThread().isInterrupted();
+  }
+
+  private boolean applyLoopSummarisation(Map<Node, Node> predMap) {
+    program = (Program) new LoopSummarisationVisitor(predMap).visit(program);
+    debugUtil.print("Code after loop summarisation is applied:\n" + new PrintVisitor().visit(program));
+    return Thread.currentThread().isInterrupted();
+  }
+
+  private SMTReturnCode checkMethod(MethodVerifier methodVerifier, ProcedureDecl proc) {
+    SMTReturnCode retCode;
+    try {
+      retCode = methodVerifier.verifyMethod(proc).getReturnCode();
+    } catch (Exception exception) {
+      retCode = SMTReturnCode.UNKNOWN;
     }
-
-    // This strategy uses loop and method summarisation. It attempts to prove the program is correct
-    // It may give false negatives. No false positives though!
-    public SMTReturnCode run() throws IOException, InterruptedException {
-        Map<Node, Node> predMap = new HashMap<>();
-
-        // apply variable shadow removal
-        program = (Program) new ShadowVisitor(predMap, program).visit(program);
-        debugUtil.print("Code after shadow visiting is applied:\n" + new PrintVisitor().visit(program));
-
-        // apply method summarisation (when calls occur) ; calling default visitor once to populate modSet
-        program = (Program) new DefaultVisitor(predMap).visit(program);
-        program = (Program) new MethodSummarisationVisitor(predMap, program).visit(program);
-        debugUtil.print("Code after method summarisation is applied:\n" + new PrintVisitor().visit(program));
-
-        // apply loop summarisation
-        program = (Program) new LoopSummarisationVisitor(predMap).visit(program);
-        debugUtil.print("Code after loop summarisation is applied:\n" + new PrintVisitor().visit(program));
-
-        MethodVerifier methodVerifier = new MethodVerifier(predMap, program, debugUtil);
-        for(ProcedureDecl proc: program.getProcedureDecls()) {
-            SMTResult result = methodVerifier.verifyMethod(proc);
-
-            if (result.getReturnCode() != SMTReturnCode.CORRECT) {
-                return result.getReturnCode();
-            }
-        }
-
-        return SMTReturnCode.CORRECT;
+    if (Thread.currentThread().isInterrupted()) {
+      retCode = SMTReturnCode.UNKNOWN;
     }
+    return retCode;
+  }
+
+  // This strategy uses loop and method summarisation.
+  // It attempts to prove the program is correct
+  // It may give false negatives. No false positives though!
+  @Override
+  public SMTReturnCode call() {
+    Map<Node, Node> predMap = new HashMap<>();
+    if (applyShadowVisitor(predMap)) {
+      return SMTReturnCode.UNKNOWN;
+    }
+    if (applyMethodSummarisation(predMap)) {
+      return SMTReturnCode.UNKNOWN;
+    }
+    if (applyLoopSummarisation(predMap)) {
+      return SMTReturnCode.UNKNOWN;
+    }
+    MethodVerifier methodVerifier = new MethodVerifier(predMap, program, debugUtil);
+    for(ProcedureDecl proc: program.getProcedureDecls()) {
+      SMTReturnCode retCode = checkMethod(methodVerifier, proc);
+      if (retCode != SMTReturnCode.CORRECT) {
+        return retCode;
+      }
+    }
+    return SMTReturnCode.CORRECT;
+  }
 }

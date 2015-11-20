@@ -10,51 +10,82 @@ import tool.SMTResult;
 import tool.SMTReturnCode;
 
 import java.io.IOException;
+import java.util.concurrent.Callable;
 import java.util.HashMap;
 import java.util.Map;
 
-public class UnsoundBMC {
+public class UnsoundBMC implements Callable<SMTReturnCode> {
 
-    private final static Integer MAX_UNWIND = 20;
+  private final static Integer MAX_UNWIND = 20;
 
-    private Program program;
+  private Program program;
 
-    private DebugUtil debugUtil;
+  private DebugUtil debugUtil;
 
-    public UnsoundBMC(Program program, DebugUtil debugUtil) {
-        this.program = program;
-        this.debugUtil = debugUtil;
+  public UnsoundBMC(Program program, DebugUtil debugUtil) {
+      this.program = program;
+      this.debugUtil = debugUtil;
+  }
+
+  private boolean applyShadowVisitor(Map<Node, Node> predMap) {
+    program = (Program) new ShadowVisitor(predMap, program).visit(program);
+    program = (Program) new DefaultVisitor(predMap).visit(program);
+    return Thread.currentThread().isInterrupted();
+  }
+
+  private boolean applyMethodSummarisation(Map<Node, Node> predMap) {
+    program = (Program) new MethodSummarisationVisitor(predMap, program).visit(program);
+    debugUtil.print("Code after method summarisation is applied:\n" +
+                    new PrintVisitor().visit(program));
+    return Thread.currentThread().isInterrupted();
+  }
+
+  // unsound BMC
+  private boolean applyLoopUnwinding(Map<Node, Node> predMap) {
+    program = (Program) new BMCVisitor(predMap, MAX_UNWIND).visit(program);
+    debugUtil.print("Code after loop unwinding is applied:\n" +
+                    new PrintVisitor().visit(program));
+    program = (Program) new ShadowVisitor(predMap, program).visit(program);
+    debugUtil.print("Code after shadow visiting is applied:\n" +
+                    new PrintVisitor().visit(program));
+    return Thread.currentThread().isInterrupted();
+  }
+
+  private SMTReturnCode checkMethod(MethodVerifier methodVerifier, ProcedureDecl proc) {
+    SMTReturnCode retCode;
+    try {
+      retCode = methodVerifier.verifyMethod(proc).getReturnCode();
+    } catch (Exception exception) {
+      retCode = SMTReturnCode.UNKNOWN;
     }
-
-    // This strategy uses unsound BMC for loops. It attempts to prove the program is incorrect
-    // It may give false positives. No false negatives though!
-    public SMTReturnCode run() throws IOException, InterruptedException {
-        Map<Node, Node> predMap = new HashMap<>();
-        program = (Program) new ShadowVisitor(predMap, program).visit(program);
-        program = (Program) new DefaultVisitor(predMap).visit(program);
-
-        // apply method summarisation (when calls occur)
-        program = (Program) new MethodSummarisationVisitor(predMap, program).visit(program);
-        debugUtil.print("Code after method summarisation is applied:\n" + new PrintVisitor().visit(program));
-
-        // apply loop unwdining: unsound BMC
-        program = (Program) new BMCVisitor(predMap, MAX_UNWIND).visit(program);
-        debugUtil.print("Code after loop unwinding is applied:\n" + new PrintVisitor().visit(program));
-
-        // apply variable shadow removal
-        program = (Program) new ShadowVisitor(predMap, program).visit(program);
-
-        debugUtil.print("Code after shadow visiting is applied:\n" + new PrintVisitor().visit(program));
-
-        MethodVerifier methodVerifier = new MethodVerifier(predMap, program, debugUtil);
-        for(ProcedureDecl proc: program.getProcedureDecls()) {
-            SMTResult result = methodVerifier.verifyMethod(proc);
-
-            if (result.getReturnCode() != SMTReturnCode.CORRECT) {
-                return result.getReturnCode();
-            }
-        }
-
-        return SMTReturnCode.CORRECT;
+    if (Thread.currentThread().isInterrupted()) {
+      retCode = SMTReturnCode.UNKNOWN;
     }
+    return retCode;
+  }
+
+  // This strategy uses unsound BMC for loops. It attempts to prove the program
+  // is incorrect.
+  // It may give false positives. No false negatives though!
+  @Override
+  public SMTReturnCode call() {
+    Map<Node, Node> predMap = new HashMap<>();
+    if (applyShadowVisitor(predMap)) {
+      return SMTReturnCode.UNKNOWN;
+    }
+    if (applyMethodSummarisation(predMap)) {
+      return SMTReturnCode.UNKNOWN;
+    }
+    if (applyLoopUnwinding(predMap)) {
+      return SMTReturnCode.UNKNOWN;
+    }
+    MethodVerifier methodVerifier = new MethodVerifier(predMap, program, debugUtil);
+    for(ProcedureDecl proc: program.getProcedureDecls()) {
+      SMTReturnCode retCode = checkMethod(methodVerifier, proc);
+      if (retCode != SMTReturnCode.CORRECT) {
+        return retCode;
+      }
+    }
+    return SMTReturnCode.CORRECT;
+  }
 }
