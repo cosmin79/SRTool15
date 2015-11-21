@@ -12,12 +12,13 @@ public class ExecutionPlan {
 
     private DebugUtil debugUtil;
     private final Program program;
+    private final String testPath;
     private final int TIMEOUT = 170;
-    private final int SLICE_SIZE = 10;
 
-    public ExecutionPlan(Program program, DebugUtil debugUtil) {
+    public ExecutionPlan(Program program, DebugUtil debugUtil, String testPath) {
         this.program = program;
         this.debugUtil = debugUtil;
+        this.testPath = testPath;
     }
 
     private void decide(SMTReturnCode returnCode) {
@@ -87,10 +88,10 @@ public class ExecutionPlan {
             put(soundBMC, new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.INCORRECT)));
         }};
 
-        /*if (!containsCandidatePrePost(program)) {
-            Future<SMTReturnCode> cChecker = executor.submit(new CRandom(cloneProgram(), debugUtil));
+        if (!containsCandidatePrePost(program)) {
+            Future<SMTReturnCode> cChecker = completionService.submit(new CRandom(cloneProgram(), debugUtil, testPath));
             trustedReturns.put(cChecker, new HashSet<>(Arrays.asList(SMTReturnCode.INCORRECT, SMTReturnCode.UNKNOWN)));
-        }*/
+        }
 
         try {
             for (int strategies = 0; strategies < trustedReturns.size(); strategies++) {

@@ -6,6 +6,7 @@ import ast.Program;
 import ast.visitor.impl.*;
 import tool.DebugUtil;
 import tool.SMTReturnCode;
+import tool.SRTool;
 import util.ProcessExec;
 
 import java.io.FileNotFoundException;
@@ -30,9 +31,12 @@ public class CRandom implements Callable<SMTReturnCode> {
 
     private DebugUtil debugUtil;
 
-    public CRandom(Program program, DebugUtil debugUtil) {
+    private final String testPath;
+
+    public CRandom(Program program, DebugUtil debugUtil, String testPath) {
         this.program = program;
         this.debugUtil = debugUtil;
+        this.testPath = testPath;
     }
 
     private boolean applyShadowVisitor(Map<Node, Node> predMap) {
@@ -56,25 +60,30 @@ public class CRandom implements Callable<SMTReturnCode> {
 
     private SMTReturnCode verifyMethod(String methodName, String program) {
         program = program.replaceFirst(methodName, MAIN);
-        debugUtil.print("Program this iteration:\n" + program) ;
+        debugUtil.print("Program this iteration:\n" + program);
+
+        String folderPrefix = SRTool.BIN_DIR + "/";
+        String currSource = folderPrefix + testPath + ".cpp";
+
         // compile program
         try {
-            PrintWriter writer = new PrintWriter("test.cpp");
+            PrintWriter writer = new PrintWriter(currSource);
             writer.println(program);
             writer.close();
         } catch (FileNotFoundException e) {
             return SMTReturnCode.UNKNOWN;
         }
 
+        String execFile = folderPrefix + testPath;
         // run program
         try {
-            ProcessExec process = new ProcessExec("g++", "test.cpp", "-o", "test");
+            ProcessExec process = new ProcessExec("g++", currSource, "-o", execFile);
             process.execute("", COMPILE_TIMEOUT);
         } catch (Exception e) {
             return SMTReturnCode.UNKNOWN;
         }
 
-        ProcessExec process = new ProcessExec("./test");
+        ProcessExec process = new ProcessExec("./" + execFile);
         try {
             process.execute("", RUN_TIMEOUT);
         } catch (Exception e) {

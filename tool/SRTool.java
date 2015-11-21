@@ -21,6 +21,8 @@ import util.ProcessTimeoutException;
 
 public class SRTool {
 
+	public static final String BIN_DIR = "execBin";
+
 	private static String readFile(String path, Charset encoding) throws IOException {
 		byte[] encoded = Files.readAllBytes(Paths.get(path));
 		return new String(encoded, encoding);
@@ -51,7 +53,13 @@ public class SRTool {
 	}
 
 	public static void main(String[] args) throws IOException, InterruptedException {
+		File binDir = new File(BIN_DIR);
+		if (!binDir.exists()) {
+			binDir.mkdir();
+		}
+
 		String fileContent = readFile(args[0], StandardCharsets.UTF_8);
+		String relativePathTest = args[0].replaceAll("/", "_");
 		ProgramContext ctx = syntaxAndSemanticProgramCheck(fileContent);
 
 		// useful abstraction for debug prints
@@ -68,6 +76,6 @@ public class SRTool {
 		program = (Program) new DefaultVisitor(new HashMap<>()).visit(program);
 
 		// This execution plan object will attempt to try multiple strategies before deciding
-		new ExecutionPlan(program, debugUtil).verifyProgram();
+		new ExecutionPlan(program, debugUtil, relativePathTest).verifyProgram();
 	}
 }
