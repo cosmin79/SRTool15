@@ -6,63 +6,63 @@ import util.Indent;
 
 import java.util.List;
 
-public class PrintVisitor implements Visitor {
+public class PrintVisitor implements Visitor<String> {
 
-    private static final String EOL = "\n";
+    protected static final String EOL = "\n";
 
-    private static final String COMMA = ",";
+    protected static final String COMMA = ",";
 
-    private static final String SPACE = " ";
+    protected static final String SPACE = " ";
 
-    private static final String FORMAL_PARAM = "int %s";
+    protected static final String FORMAL_PARAM = "int %s";
 
-    private static final String VAR_DECL = "int %s;\n";
+    protected static final String VAR_DECL = "int %s;\n";
 
-    private static final String ASSIGN_STMT = "%s = %s;\n";
+    protected static final String ASSIGN_STMT = "%s = %s;\n";
 
-    private static final String ASSERT_STMT = "assert %s;\n";
+    protected static final String ASSERT_STMT = "assert %s;\n";
 
-    private static final String ASSUME_STMT = "assume %s;\n";
+    protected static final String ASSUME_STMT = "assume %s;\n";
 
-    private static final String HAVOC_STMT = "havoc %s;\n";
+    protected static final String HAVOC_STMT = "havoc %s;\n";
 
-    private static final String IF_STMT = "if (%s) then:\n";
+    protected static final String IF_STMT = "if (%s) then:\n";
 
-    private static final String ELSE_STMT = "else:\n";
+    protected static final String ELSE_STMT = "else:\n";
 
-    private static final String WHILE_COND = "while (%s)\n";
+    protected static final String WHILE_COND = "while (%s)\n";
 
-    private static final String METHOD_ANTET = "int %s(%s)\n";
+    protected static final String METHOD_ANTET = "int %s(%s)\n";
 
-    private static final String POSTCONDITION = "postcondition: %s";
+    protected static final String POSTCONDITION = "postcondition: %s";
 
-    private static final String CANDIDATE_POSTCONDITION = "candidate postcondition: %s";
+    protected static final String CANDIDATE_POSTCONDITION = "candidate postcondition: %s";
 
-    private static final String PRECONDITION = "precondition: %s";
+    protected static final String PRECONDITION = "precondition: %s";
 
-    private static final String CANDIDATE_PRECONDITION = "candidate precondition: %s";
+    protected static final String CANDIDATE_PRECONDITION = "candidate precondition: %s";
 
-    private static final String INVARIANT = "invariant: %s";
+    protected static final String INVARIANT = "invariant: %s";
 
-    private static final String CANDIDATE_INVARIANT = "candidate invariant: %s";
+    protected static final String CANDIDATE_INVARIANT = "candidate invariant: %s";
 
-    private static final String CALL_STMT = "%s = %s(%s);\n";
+    protected static final String CALL_STMT = "%s = %s(%s);\n";
 
-    private static final String PAREN_EXPR = "(%s)";
+    protected static final String PAREN_EXPR = "(%s)";
 
-    private static final String RESULT_EXPR = "\\result";
+    protected static final String RESULT_EXPR = "\\result";
 
-    private static final String OLD_EXPR = "\\old(%s)";
+    protected static final String OLD_EXPR = "\\old(%s)";
 
-    private static final String TERN_EXPR = "%s ? %s : %s";
+    protected static final String TERN_EXPR = "%s ? %s : %s";
 
-    private static final String BINARY_EXPR = "(%s %s %s)";
+    protected static final String BINARY_EXPR = "(%s %s %s)";
 
-    private static final String UNARY_EXPR = "(%s %s)";
+    protected static final String UNARY_EXPR = "(%s %s)";
 
-    private static final String RETURN_STMT = "return %s;\n";
+    protected static final String RETURN_STMT = "return %s;\n";
 
-    private final Indent ident = new Indent("\t");
+    protected final Indent ident = new Indent("\t");
 
     @Override
     public String visit(Program program) {
@@ -84,7 +84,7 @@ public class PrintVisitor implements Visitor {
         return ident.getIndent() + String.format(VAR_DECL, varDecl.getVarIdentifier().accept(this));
     }
 
-    private<T extends Node> String tokenSeparated(List<T> listNodes, String sep) {
+    protected<T extends Node> String tokenSeparated(List<T> listNodes, String sep) {
         StringBuilder code = new StringBuilder();
         if (!listNodes.isEmpty()) {
             code.append(listNodes.get(0).accept(this));
