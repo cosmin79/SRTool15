@@ -60,6 +60,8 @@ public class SRTool {
 
 		String fileContent = readFile(args[0], StandardCharsets.UTF_8);
 		String relativePathTest = args[0].replaceAll("/", "_");
+		relativePathTest = relativePathTest.replaceAll("\\.", "_");
+
 		ProgramContext ctx = syntaxAndSemanticProgramCheck(fileContent);
 
 		// useful abstraction for debug prints

@@ -62,7 +62,7 @@ public class CRandom implements Callable<SMTReturnCode> {
         program = program.replaceFirst(methodName, MAIN);
         debugUtil.print("Program this iteration:\n" + program);
 
-        String folderPrefix = SRTool.BIN_DIR + "/";
+        String folderPrefix = SRTool.BIN_DIR + "/start_";
         String currSource = folderPrefix + testPath + ".cpp";
 
         // compile program
