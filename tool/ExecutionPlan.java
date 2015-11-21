@@ -13,7 +13,7 @@ public class ExecutionPlan {
     private DebugUtil debugUtil;
     private final Program program;
     private final String testPath;
-    private final int TIMEOUT = 170;
+    private final int TIMEOUT = 150;
 
     public ExecutionPlan(Program program, DebugUtil debugUtil, String testPath) {
         this.program = program;
@@ -83,15 +83,26 @@ public class ExecutionPlan {
 
         Map<Future<SMTReturnCode>, Set<SMTReturnCode>> trustedReturns = new HashMap<Future<SMTReturnCode>, Set<SMTReturnCode>>() {{
             put(loopAndMethodSummary, new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.UNKNOWN)));
-            put(houdini, new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.UNKNOWN)));
+
+            Set<SMTReturnCode> houdiniValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.UNKNOWN));
+            if (program.getLoops().isEmpty()) {
+                houdiniValues.add(SMTReturnCode.INCORRECT);
+            }
+            put(houdini, houdiniValues);
+
             put(unsoundBMC, new HashSet<>(Arrays.asList(SMTReturnCode.INCORRECT, SMTReturnCode.UNKNOWN)));
-            put(soundBMC, new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.INCORRECT)));
+
+            Set<SMTReturnCode> soundBMCValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
+            if (!containsCandidatePrePost(program)) {
+                soundBMCValues.add(SMTReturnCode.INCORRECT);
+            }
+            put(soundBMC, soundBMCValues);
         }};
 
-        if (!containsCandidatePrePost(program)) {
+        /*if (!containsCandidatePrePost(program)) {
             Future<SMTReturnCode> cChecker = completionService.submit(new CRandom(cloneProgram(), debugUtil, testPath));
             trustedReturns.put(cChecker, new HashSet<>(Arrays.asList(SMTReturnCode.INCORRECT, SMTReturnCode.UNKNOWN)));
-        }
+        }*/
 
         try {
             long startTime = System.currentTimeMillis();
