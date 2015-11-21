@@ -94,8 +94,12 @@ public class ExecutionPlan {
         }
 
         try {
+            long startTime = System.currentTimeMillis();
+            long endTime = startTime + TIMEOUT * 1000;
             for (int strategies = 0; strategies < trustedReturns.size(); strategies++) {
-                Future<SMTReturnCode> oneResult = completionService.poll(TIMEOUT, TimeUnit.SECONDS);
+                long timeout = endTime - System.currentTimeMillis();
+                timeout = timeout > 0 ? timeout : 0;
+                Future<SMTReturnCode> oneResult = completionService.poll(timeout, TimeUnit.MILLISECONDS);
                 SMTReturnCode maybeRetCode = getReturnCode(oneResult);
                 if (oneResult != null) {
                     if (trustedReturns.get(oneResult).contains(maybeRetCode)) {
