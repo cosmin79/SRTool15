@@ -13,7 +13,7 @@ public class ExecutionPlan {
     private DebugUtil debugUtil;
     private final Program program;
     private final String testPath;
-    private final int TIMEOUT = 170;
+    private final int TIMEOUT = 150;
 
     public ExecutionPlan(Program program, DebugUtil debugUtil, String testPath) {
         this.program = program;
