@@ -20,6 +20,8 @@ public class PrintCVisitor extends PrintVisitor {
 
     private static final String LEFT_SHIFT = "myleftshift(%s, %s)";
 
+    private static final String RAND_STMT = "srand(time(0));\n";
+
     private Program program;
 
     public PrintCVisitor(Program program) {
@@ -41,6 +43,7 @@ public class PrintCVisitor extends PrintVisitor {
         // begin method body
         sb.append(ident.getIndent() + "{" + EOL);
         ident.push();
+        sb.append(ident.getIndent() + RAND_STMT);
         for (FormalParam formalParam: procedureDecl.getParamList()) {
             sb.append(ident.getIndent() + String.format(VAR_DECL, formalParam.getVarIdentifier().getVarName()));
         }

@@ -25,7 +25,7 @@ public class CRandom implements Callable<SMTReturnCode> {
 
     private static final String MAIN = "main";
 
-    private static final String INCLUDE_ASSERT_LIBRARY = "#include <cassert>\n";
+    private static final String INCLUDE_ASSERT_LIBRARY = "#include <cassert>\n#include <ctime>\n#include <cstdlib>\n";
 
     private static final String DIV_FUNC = "int mydiv(int a, int b) { return !b ? a : a / b;}\n";
 
