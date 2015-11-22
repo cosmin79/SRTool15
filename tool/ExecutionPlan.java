@@ -76,8 +76,6 @@ public class ExecutionPlan {
                 completionService.submit(new LoopAndMethodSummary(cloneProgram(), debugUtil));
         Future<SMTReturnCode> houdini =
                 completionService.submit(new Houdini(cloneProgram(), debugUtil));
-        Future<SMTReturnCode> unsoundBMC =
-                completionService.submit(new UnsoundBMC(cloneProgram(), debugUtil));
         Future<SMTReturnCode> soundBMC =
                 completionService.submit(new SoundBMC(cloneProgram(), debugUtil));
 
@@ -89,8 +87,6 @@ public class ExecutionPlan {
                 houdiniValues.add(SMTReturnCode.INCORRECT);
             }
             put(houdini, houdiniValues);
-
-            put(unsoundBMC, new HashSet<>(Arrays.asList(SMTReturnCode.INCORRECT, SMTReturnCode.UNKNOWN)));
 
             Set<SMTReturnCode> soundBMCValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
             if (!containsCandidatePrePost(program)) {
