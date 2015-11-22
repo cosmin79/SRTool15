@@ -16,6 +16,10 @@ public class PrintCVisitor extends PrintVisitor {
 
     private static final String ASSERT_STMT = "assert (%s);\n";
 
+    private static final String SPEC_DIV = "mydiv(%s, %s)";
+
+    private static final String LEFT_SHIFT = "myleftshift(%s, %s)";
+
     private Program program;
 
     public PrintCVisitor(Program program) {
@@ -92,5 +96,17 @@ public class PrintCVisitor extends PrintVisitor {
 
         sb.append(EOL);
         return sb.toString();
+    }
+
+    @Override
+    public String visit(BinaryExpr binaryExpr) {
+        String lhs = (String) binaryExpr.getLhs().accept(this);
+        String rhs = (String) binaryExpr.getRhs().accept(this);
+        if (binaryExpr.getBinaryOp().equals("/")) {
+            return String.format(SPEC_DIV, lhs, rhs);
+        } else if (binaryExpr.getBinaryOp().equals("<<")) {
+            return String.format(LEFT_SHIFT, lhs, rhs);
+        }
+        return super.visit(binaryExpr);
     }
 }

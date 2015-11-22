@@ -69,6 +69,12 @@ public class ExecutionPlan {
     }
 
     public void verifyProgram() {
+        if (!containsCandidatePrePost(program)) {
+            if (new CRandom(cloneProgram(), debugUtil, testPath).call() == SMTReturnCode.INCORRECT) {
+                decide(SMTReturnCode.INCORRECT);
+            }
+        }
+
         ExecutorService executor = Executors.newFixedThreadPool(4);
         CompletionService<SMTReturnCode> completionService = new ExecutorCompletionService<>(executor);
 

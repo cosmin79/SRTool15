@@ -17,15 +17,21 @@ import java.util.concurrent.Callable;
 
 public class CRandom implements Callable<SMTReturnCode> {
 
-    private static final int MAX_ITERATIONS = 10;
+    private static final int MAX_ITERATIONS = 2;
 
     private static final int COMPILE_TIMEOUT = 2;
 
-    private static final int RUN_TIMEOUT = 8;
+    private static final int RUN_TIMEOUT = 3;
 
     private static final String MAIN = "main";
 
     private static final String INCLUDE_ASSERT_LIBRARY = "#include <cassert>\n";
+
+    private static final String DIV_FUNC = "int mydiv(int a, int b) { return !b ? a : a / b;}\n";
+
+    private static final String LEFT_SHIFT_FUNC = "int myleftshift(int a, int b) { return b >= 32 ? 0 : a;}\n";
+
+    private static final String METHOD = "foo%s";
 
     private Program program;
 
@@ -111,9 +117,17 @@ public class CRandom implements Callable<SMTReturnCode> {
         if (applyNonCFeaturesRemoval(predMap)) {
             return SMTReturnCode.UNKNOWN;
         }
-        String code = INCLUDE_ASSERT_LIBRARY + new PrintCVisitor(program).visit(program);
+
+        // assign unique method names i.e. foo0, foo1..
+        int numMethods = 0;
+        for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
+            procedureDecl.setMethodName(String.format(METHOD, numMethods++));
+        }
+
+        String code = INCLUDE_ASSERT_LIBRARY + DIV_FUNC + LEFT_SHIFT_FUNC + new PrintCVisitor(program).visit(program);
         debugUtil.print("Final C program:\n" + code + "\n");
 
+        // verify each method
         for (int noIterations = 0; noIterations < MAX_ITERATIONS; noIterations++) {
             for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
                 SMTReturnCode returnCode = verifyMethod(procedureDecl.getMethodName(), code);
@@ -123,6 +137,6 @@ public class CRandom implements Callable<SMTReturnCode> {
             }
         }
 
-        return SMTReturnCode.MAYBE_COREECT;
+        return SMTReturnCode.CORRECT;
     }
 }

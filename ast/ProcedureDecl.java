@@ -41,6 +41,10 @@ public class ProcedureDecl extends Node {
         return methodName;
     }
 
+    public void setMethodName(String methodName) {
+        this.methodName = methodName;
+    }
+
     public List<FormalParam> getParamList() {
         return paramList;
     }
