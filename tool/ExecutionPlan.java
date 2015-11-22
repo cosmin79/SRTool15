@@ -13,7 +13,7 @@ public class ExecutionPlan {
     private DebugUtil debugUtil;
     private final Program program;
     private final String testPath;
-    private final int TIMEOUT = 150;
+    private final int TIMEOUT = 165;
 
     public ExecutionPlan(Program program, DebugUtil debugUtil, String testPath) {
         this.program = program;
@@ -76,8 +76,6 @@ public class ExecutionPlan {
                 completionService.submit(new LoopAndMethodSummary(cloneProgram(), debugUtil));
         Future<SMTReturnCode> houdini =
                 completionService.submit(new Houdini(cloneProgram(), debugUtil));
-        Future<SMTReturnCode> unsoundBMC =
-                completionService.submit(new UnsoundBMC(cloneProgram(), debugUtil));
         Future<SMTReturnCode> soundBMC =
                 completionService.submit(new SoundBMC(cloneProgram(), debugUtil));
 
@@ -89,8 +87,6 @@ public class ExecutionPlan {
                 houdiniValues.add(SMTReturnCode.INCORRECT);
             }
             put(houdini, houdiniValues);
-
-            put(unsoundBMC, new HashSet<>(Arrays.asList(SMTReturnCode.INCORRECT, SMTReturnCode.UNKNOWN)));
 
             Set<SMTReturnCode> soundBMCValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
             if (!containsCandidatePrePost(program)) {
@@ -123,6 +119,7 @@ public class ExecutionPlan {
                     decide(SMTReturnCode.UNKNOWN);
                 }
             }
+            decide(SMTReturnCode.UNKNOWN);
         } catch (InterruptedException e) {
             decide(SMTReturnCode.UNKNOWN);
             Thread.currentThread().interrupt();
