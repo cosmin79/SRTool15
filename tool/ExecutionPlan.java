@@ -73,9 +73,9 @@ public class ExecutionPlan {
         CompletionService<SMTReturnCode> completionService = new ExecutorCompletionService<>(executor);
 
         Future<SMTReturnCode> houdini =
-                completionService.submit(new Houdini(cloneProgram(), debugUtil));
+                completionService.submit(new HoudiniWithLoopSummary(cloneProgram(), debugUtil));
         Future<SMTReturnCode> soundBMC =
-                completionService.submit(new SoundBMC(cloneProgram(), debugUtil));
+                completionService.submit(new HoudiniWithBMC(cloneProgram(), debugUtil));
 
         Map<Future<SMTReturnCode>, Set<SMTReturnCode>> trustedReturns = new HashMap<Future<SMTReturnCode>, Set<SMTReturnCode>>() {{
             Set<SMTReturnCode> houdiniValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
