@@ -121,7 +121,7 @@ public class SoundBMC implements Callable<SMTReturnCode> {
                     if (failedNodes.contains(loopEntry.getKey())) {
                         // it means we've never reached the end of that while loop ; update
                         WhileStmt whileStmt = loopEntry.getValue();
-                        currUnwind.put(whileStmt, currUnwind.get(whileStmt) + 2);
+                        currUnwind.put(whileStmt, currUnwind.get(whileStmt) + 1);
                         hasToRecompute = true;
                     }
                 }
@@ -159,22 +159,14 @@ public class SoundBMC implements Callable<SMTReturnCode> {
             debugUtil.print(String.format("Analyzing procedure: %s\n", procedureDecl.getMethodName()));
             // analyze this procedure and put it back in the queue if required
 
-            BMCVisitor bmcVisitor = new BMCVisitor(predMap, currUnwind);
-            ProcedureDecl transformedProcedure = (ProcedureDecl) bmcVisitor.visit(procedureDecl);
-            debugUtil.print("Code after loop unwinding is applied:\n" +
-                    new PrintVisitor().visit(transformedProcedure));
+            BMCVisitor bmcVisitor = new BMCVisitor(predMap, currUnwind, BmcType.SOUND_PROBE);
+            SMTReturnCode returnCode = applyBMC(predMap, currUnwind, procedureDecl, criticalFailures, bmcVisitor);
+            if (returnCode != SMTReturnCode.CORRECT) {
+                return returnCode;
+            }
 
-            // Program with this corresponding method replaced
-            Program modifiedProgram =
-                    (Program) new MethodReplaceVisitor(predMap, transformedProcedure).
-                            visit(program);
-
-            SMTReturnCode returnCode = verifySoundBMC(predMap,
-                    criticalFailures,
-                    modifiedProgram,
-                    procedureDecl.getMethodName(),
-                    bmcVisitor,
-                    currUnwind);
+            bmcVisitor = new BMCVisitor(predMap, currUnwind, BmcType.SOUND);
+            returnCode = applyBMC(predMap, currUnwind, procedureDecl, criticalFailures, bmcVisitor);
             if (returnCode == SMTReturnCode.INCORRECT || returnCode == SMTReturnCode.UNKNOWN) {
                 return returnCode;
             } else if (returnCode == SMTReturnCode.MAYBE_COREECT) {
@@ -183,5 +175,25 @@ public class SoundBMC implements Callable<SMTReturnCode> {
             }
         }
         return SMTReturnCode.CORRECT;
+    }
+
+    private SMTReturnCode applyBMC(Map<Node, Node> predMap,
+                                   Map<WhileStmt, Integer> currUnwind,
+                                   ProcedureDecl procedureDecl,
+                                   Set<Node> criticalFailures,
+                                   BMCVisitor bmcVisitor) {
+        ProcedureDecl transformedProcedure = (ProcedureDecl) bmcVisitor.visit(procedureDecl);
+
+        // Program with this corresponding method replaced
+        Program modifiedProgram =
+                (Program) new MethodReplaceVisitor(predMap, transformedProcedure).
+                        visit(program);
+
+        return verifySoundBMC(predMap,
+                criticalFailures,
+                modifiedProgram,
+                procedureDecl.getMethodName(),
+                bmcVisitor,
+                currUnwind);
     }
 }
