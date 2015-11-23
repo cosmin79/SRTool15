@@ -9,7 +9,7 @@ import java.util.Map;
 
 public class BMCVisitor extends DefaultVisitor {
 
-    private Boolean sound;
+    private BmcType soundType;
 
     private Integer maxDepth;
 
@@ -19,13 +19,13 @@ public class BMCVisitor extends DefaultVisitor {
 
     public BMCVisitor(Map<Node, Node> predMap, int maxDepth) {
         super(predMap);
-        this.sound = false;
+        this.soundType = BmcType.UNSOUND;
         this.maxDepth = maxDepth;
     }
 
-    public BMCVisitor(Map<Node, Node> predMap, Map<WhileStmt, Integer> unwindDepth) {
+    public BMCVisitor(Map<Node, Node> predMap, Map<WhileStmt, Integer> unwindDepth, BmcType soundType) {
         super(predMap);
-        this.sound = true;
+        this.soundType = soundType;
         this.unwindDepth = unwindDepth;
         this.stopAsserts = new HashMap<>();
     }
@@ -57,7 +57,7 @@ public class BMCVisitor extends DefaultVisitor {
         List<Stmt> stmtListThen = new LinkedList<>();
         // invariants hold in the end
         stmtListThen.add(assertInvariantsBlock);
-        if (sound) {
+        if (soundType == BmcType.SOUND) {
             AssertStmt assertFalse = new AssertStmt(NumberExpr.FALSE);
             assertFalse.setIsBMCStop(true);
             stmtListThen.add(assertFalse);
@@ -66,7 +66,7 @@ public class BMCVisitor extends DefaultVisitor {
         stmtListThen.add(new AssumeStmt(NumberExpr.FALSE));
         IfStmt resultIf = new IfStmt(condition, new BlockStmt(stmtListThen), new BlockStmt());
 
-        int noIterations = sound ? unwindDepth.get(whileStmt) : maxDepth;
+        int noIterations = soundType != BmcType.UNSOUND ? unwindDepth.get(whileStmt) : maxDepth;
         for (int iteration = 1; iteration <= noIterations; iteration++) {
             List<Stmt> newIfBlock = new LinkedList<>();
             newIfBlock.add(body);

@@ -7,25 +7,6 @@ import tool.*;
 import java.util.*;
 import java.util.concurrent.Callable;
 
-class TransformationResult {
-
-    private Program program;
-
-    private boolean success;
-
-    public TransformationResult(Program program, boolean success) {
-        this.program = program;
-        this.success = success;
-    }
-
-    public Program getProgram() {
-        return program;
-    }
-
-    public boolean isSuccess() {
-        return success;
-    }
-}
 
 public class HoudiniWithBMC implements Callable<SMTReturnCode> {
 
@@ -202,35 +183,50 @@ public class HoudiniWithBMC implements Callable<SMTReturnCode> {
                 debugUtil.print(String.format("Analyzing procedure: %s\n", procedureDecl.getMethodName()));
                 // analyze this procedure and put it back in the queue if required
 
-                BMCVisitor bmcVisitor = new BMCVisitor(predMap, currUnwind);
-                ProcedureDecl transformedProcedure = (ProcedureDecl) bmcVisitor.visit(procedureDecl);
-                debugUtil.print("Code after loop unwinding is applied:\n" +
-                        new PrintVisitor().visit(transformedProcedure));
-
-                // Program with this corresponding method replaced
-                Program modifiedProgram =
-                        (Program) new MethodReplaceVisitor(predMap, transformedProcedure).
-                                visit(intermediateProgram);
-
-                SMTReturnCode returnCode = verifySoundBMC(predMap,
-                        criticalFailures,
-                        modifiedProgram,
-                        procedureDecl.getMethodName(),
-                        bmcVisitor,
-                        currUnwind);
+                BMCVisitor bmcVisitor = new BMCVisitor(predMap, currUnwind, BmcType.SOUND_PROBE);
+                SMTReturnCode returnCode = applyBMC(predMap, currUnwind, procedureDecl, criticalFailures, bmcVisitor);
                 if (returnCode == SMTReturnCode.INCORRECT || returnCode == SMTReturnCode.UNKNOWN) {
                     return returnCode;
                 } else if (returnCode == SMTReturnCode.FAILED_CANDIDATE_HOUDINI) {
                     // we've already updated the candidate pre-post conditions ; start again
                     updateHoudini = true;
                     break ;
+                }
+
+                bmcVisitor = new BMCVisitor(predMap, currUnwind, BmcType.SOUND);
+                returnCode = applyBMC(predMap, currUnwind, procedureDecl, criticalFailures, bmcVisitor);
+                // technically speaking, only last branch should hold?
+                if (returnCode == SMTReturnCode.INCORRECT || returnCode == SMTReturnCode.UNKNOWN) {
+                    return returnCode;
+                } else if (returnCode == SMTReturnCode.FAILED_CANDIDATE_HOUDINI) {
+                    updateHoudini = true;
+                    break ;
                 } else if (returnCode == SMTReturnCode.MAYBE_COREECT) {
-                    // put it back if no errors were detected, nor is the loop completely unwind
                     toRecompute.add(procedureDecl);
                 }
             }
         }
 
         return SMTReturnCode.CORRECT;
+    }
+
+    private SMTReturnCode applyBMC(Map<Node, Node> predMap,
+                                   Map<WhileStmt, Integer> currUnwind,
+                                   ProcedureDecl procedureDecl,
+                                   Set<Node> criticalFailures,
+                                   BMCVisitor bmcVisitor) {
+        ProcedureDecl transformedProcedure = (ProcedureDecl) bmcVisitor.visit(procedureDecl);
+
+        // Program with this corresponding method replaced
+        Program modifiedProgram =
+                (Program) new MethodReplaceVisitor(predMap, transformedProcedure).
+                        visit(program);
+
+        return verifySoundBMC(predMap,
+                criticalFailures,
+                modifiedProgram,
+                procedureDecl.getMethodName(),
+                bmcVisitor,
+                currUnwind);
     }
 }
