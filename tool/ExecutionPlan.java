@@ -69,26 +69,16 @@ public class ExecutionPlan {
     }
 
     public void verifyProgram() {
-        if (!containsCandidatePrePost(program)) {
-            if (new CRandom(cloneProgram(), debugUtil, testPath).call() == SMTReturnCode.INCORRECT) {
-                decide(SMTReturnCode.INCORRECT);
-            }
-        }
-
-        ExecutorService executor = Executors.newFixedThreadPool(4);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
         CompletionService<SMTReturnCode> completionService = new ExecutorCompletionService<>(executor);
 
-        Future<SMTReturnCode> loopAndMethodSummary =
-                completionService.submit(new LoopAndMethodSummary(cloneProgram(), debugUtil));
         Future<SMTReturnCode> houdini =
                 completionService.submit(new Houdini(cloneProgram(), debugUtil));
         Future<SMTReturnCode> soundBMC =
                 completionService.submit(new SoundBMC(cloneProgram(), debugUtil));
 
         Map<Future<SMTReturnCode>, Set<SMTReturnCode>> trustedReturns = new HashMap<Future<SMTReturnCode>, Set<SMTReturnCode>>() {{
-            put(loopAndMethodSummary, new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.UNKNOWN)));
-
-            Set<SMTReturnCode> houdiniValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.UNKNOWN));
+            Set<SMTReturnCode> houdiniValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
             if (program.getLoops().isEmpty()) {
                 houdiniValues.add(SMTReturnCode.INCORRECT);
             }
@@ -100,11 +90,6 @@ public class ExecutionPlan {
             }
             put(soundBMC, soundBMCValues);
         }};
-
-        /*if (!containsCandidatePrePost(program)) {
-            Future<SMTReturnCode> cChecker = completionService.submit(new CRandom(cloneProgram(), debugUtil, testPath));
-            trustedReturns.put(cChecker, new HashSet<>(Arrays.asList(SMTReturnCode.INCORRECT, SMTReturnCode.UNKNOWN)));
-        }*/
 
         try {
             long startTime = System.currentTimeMillis();

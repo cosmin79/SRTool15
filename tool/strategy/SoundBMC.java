@@ -8,6 +8,26 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Callable;
 
+class TransformationResult {
+
+    private Program program;
+
+    private boolean success;
+
+    public TransformationResult(Program program, boolean success) {
+        this.program = program;
+        this.success = success;
+    }
+
+    public Program getProgram() {
+        return program;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+}
+
 public class SoundBMC implements Callable<SMTReturnCode> {
 
     private Program program;
@@ -19,10 +39,11 @@ public class SoundBMC implements Callable<SMTReturnCode> {
         this.debugUtil = debugUtil;
     }
 
-    private boolean firstPass(Map<Node, Node> predMap, Program program) {
+    private TransformationResult firstPass(Map<Node, Node> predMap, Program program) {
         program = (Program) new ShadowVisitor(predMap, program).visit(program);
         program = (Program) new DefaultVisitor(predMap).visit(program);
-        return Thread.currentThread().isInterrupted();
+
+        return new TransformationResult(program, !Thread.currentThread().isInterrupted());
     }
 
     private boolean applyMethodSummarisation(Map<Node, Node> predMap) {
@@ -66,9 +87,11 @@ public class SoundBMC implements Callable<SMTReturnCode> {
                                          BMCVisitor bmcVisitor,
                                          Map<WhileStmt, Integer> currUnwind) {
         // apply variable shadow removal
-        if (firstPass(predMap, program)) {
+        TransformationResult firstPassResult = firstPass(predMap, program);
+        if (!firstPassResult.isSuccess()) {
             return SMTReturnCode.UNKNOWN;
         }
+        program = firstPassResult.getProgram();
 
         MethodVerifier methodVerifier = new MethodVerifier(predMap, program, debugUtil);
         for (ProcedureDecl proc : program.getProcedureDecls()) {
@@ -98,7 +121,7 @@ public class SoundBMC implements Callable<SMTReturnCode> {
                     if (failedNodes.contains(loopEntry.getKey())) {
                         // it means we've never reached the end of that while loop ; update
                         WhileStmt whileStmt = loopEntry.getValue();
-                        currUnwind.put(whileStmt, currUnwind.get(whileStmt) + 1);
+                        currUnwind.put(whileStmt, currUnwind.get(whileStmt) + 2);
                         hasToRecompute = true;
                     }
                 }
@@ -115,9 +138,12 @@ public class SoundBMC implements Callable<SMTReturnCode> {
     @Override
     public SMTReturnCode call() {
         Map<Node, Node> predMap = new HashMap<>();
-        if (firstPass(predMap, program)) {
+        TransformationResult firstPassResult = firstPass(predMap, program);
+        if (!firstPassResult.isSuccess()) {
             return SMTReturnCode.UNKNOWN;
         }
+        program = firstPassResult.getProgram();
+
         if (applyMethodSummarisation(predMap)) {
             return SMTReturnCode.UNKNOWN;
         }
