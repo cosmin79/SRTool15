@@ -56,39 +56,29 @@ public class ExecutionPlan {
         return retCode;
     }
 
-    private boolean containsCandidatePrePost(Program program) {
-        for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
-            for (PrePostCondition prePostCondition: procedureDecl.getPrePostConditions()) {
-                if (prePostCondition instanceof CandidatePrecondition || prePostCondition instanceof CandidatePostcondition) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     public void verifyProgram() {
-        ExecutorService executor = Executors.newFixedThreadPool(2);
+        ExecutorService executor = Executors.newFixedThreadPool(3);
         CompletionService<SMTReturnCode> completionService = new ExecutorCompletionService<>(executor);
 
-        Future<SMTReturnCode> houdini =
+        Future<SMTReturnCode> houdiniLoopSumarrisation =
                 completionService.submit(new HoudiniWithLoopSummary(cloneProgram(), debugUtil));
-        Future<SMTReturnCode> soundBMC =
+        Future<SMTReturnCode> houdiniLoopBMC =
                 completionService.submit(new HoudiniWithBMC(cloneProgram(), debugUtil));
+        Future<SMTReturnCode> houdiniInvariantsInference =
+                completionService.submit(new HoudiniWithInvariantInference(cloneProgram(), debugUtil));
 
         Map<Future<SMTReturnCode>, Set<SMTReturnCode>> trustedReturns = new HashMap<Future<SMTReturnCode>, Set<SMTReturnCode>>() {{
-            Set<SMTReturnCode> houdiniValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
+            Set<SMTReturnCode> houdiniLoopSummaryValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
             if (program.getLoops().isEmpty()) {
-                houdiniValues.add(SMTReturnCode.INCORRECT);
+                houdiniLoopSummaryValues.add(SMTReturnCode.INCORRECT);
             }
-            put(houdini, houdiniValues);
+            put(houdiniLoopSumarrisation, houdiniLoopSummaryValues);
 
-            Set<SMTReturnCode> soundBMCValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
-            if (!containsCandidatePrePost(program)) {
-                soundBMCValues.add(SMTReturnCode.INCORRECT);
-            }
-            put(soundBMC, soundBMCValues);
+            Set<SMTReturnCode> houdiniBMCValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.INCORRECT));
+            put(houdiniLoopBMC, houdiniBMCValues);
+
+            Set<SMTReturnCode> houdiniInvariantInferenceValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
+            put(houdiniInvariantsInference, houdiniInvariantInferenceValues);
         }};
 
         try {

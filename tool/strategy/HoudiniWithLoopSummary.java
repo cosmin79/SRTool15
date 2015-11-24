@@ -11,7 +11,7 @@ import java.util.concurrent.Callable;
 
 public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
 
-    private Program program;
+    protected Program program;
 
     private DebugUtil debugUtil;
 
@@ -22,12 +22,6 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
         this.program = program;
         this.debugUtil = debugUtil;
         consideredCandidates = new HashSet<>();
-    }
-
-    private boolean applyShadowVisitor(Map<Node, Node> predMap) {
-        program = (Program) new ShadowVisitor(predMap, program).visit(program);
-        program = (Program) new DefaultVisitor(predMap).visit(program);
-        return Thread.currentThread().isInterrupted();
     }
 
     private boolean addCandidatePrePostConditions() {
@@ -70,9 +64,6 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
     @Override
     public SMTReturnCode call() {
         Map<Node, Node> predMap = new HashMap<>();
-        if (applyShadowVisitor(predMap)) {
-          return SMTReturnCode.UNKNOWN;
-        }
         Set<Node> criticalFailures = program.getPotentiallyCriticalFailures();
         if (addCandidatePrePostConditions()) {
             return SMTReturnCode.UNKNOWN;

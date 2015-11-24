@@ -8,6 +8,8 @@ class ScopeInfo {
 
     private Map<String, Integer> variables;
 
+    private Set<Expr> encounteredExprs;
+
     private Expr conditions;
 
     public ScopeInfo() {
@@ -17,6 +19,7 @@ class ScopeInfo {
     public ScopeInfo(Map<String, Integer> variables) {
         this.variables = variables;
         conditions = NumberExpr.TRUE;
+        encounteredExprs = new HashSet<>();
     }
 
     public Map<String, Integer> getVariables() {
@@ -31,12 +34,20 @@ class ScopeInfo {
         return variables.get(name);
     }
 
+    public Set<Expr> getEncounteredExprs() {
+        return encounteredExprs;
+    }
+
     public void addVariable(String name, Integer id) {
         variables.put(name, id);
     }
 
     public void addCondition(Expr cond) {
         conditions = ScopesHandler.combineConditions(conditions, cond);
+    }
+
+    public void addExpr(Expr expr) {
+        encounteredExprs.add(expr);
     }
 }
 
@@ -143,6 +154,14 @@ public class ScopesHandler {
         assumptions = combineConditions(assumptions, implicationCondition(getConditionsGlobal(), condition));
     }
 
+    // TODO(ccarabet): give this method a better name or move this logic somewhere else.
+    // this is only applicable for Houdini related logic
+    public void addExpr(Expr expr) {
+        if (expr.isCandidateHoudini()) {
+            peekScope().addExpr(expr);
+        }
+    }
+
     private Integer latestVarId(String name) {
         for (ScopeInfo scope: scopesStack) {
             Integer valueForVar = scope.getVariable(name);
@@ -198,5 +217,23 @@ public class ScopesHandler {
 
     public String getOldGlobal(String varName) {
         return String.format(VAR_ID, varName, getOldGlobalVariable(varName));
+    }
+
+    public Set<String> getDefinedVars() {
+        Set<String> result = new HashSet<>();
+        for (ScopeInfo scopeInfo: scopesStack) {
+            result.addAll(scopeInfo.getVariables().keySet());
+        }
+
+        return result;
+    }
+
+    public Set<Expr> getUsedExprs() {
+        Set<Expr> result = new HashSet<>();
+        for (ScopeInfo scopeInfo: scopesStack) {
+            result.addAll(scopeInfo.getEncounteredExprs());
+        }
+
+        return result;
     }
 }

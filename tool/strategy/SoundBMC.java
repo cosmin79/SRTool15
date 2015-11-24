@@ -4,7 +4,6 @@ import ast.*;
 import ast.visitor.impl.*;
 import tool.*;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Callable;
 
@@ -39,7 +38,7 @@ public class SoundBMC implements Callable<SMTReturnCode> {
         this.debugUtil = debugUtil;
     }
 
-    private TransformationResult firstPass(Map<Node, Node> predMap, Program program) {
+    private TransformationResult applyShadowVisitor(Map<Node, Node> predMap, Program program) {
         program = (Program) new ShadowVisitor(predMap, program).visit(program);
         program = (Program) new DefaultVisitor(predMap).visit(program);
 
@@ -87,7 +86,7 @@ public class SoundBMC implements Callable<SMTReturnCode> {
                                          BMCVisitor bmcVisitor,
                                          Map<WhileStmt, Integer> currUnwind) {
         // apply variable shadow removal
-        TransformationResult firstPassResult = firstPass(predMap, program);
+        TransformationResult firstPassResult = applyShadowVisitor(predMap, program);
         if (!firstPassResult.isSuccess()) {
             return SMTReturnCode.UNKNOWN;
         }
@@ -138,11 +137,6 @@ public class SoundBMC implements Callable<SMTReturnCode> {
     @Override
     public SMTReturnCode call() {
         Map<Node, Node> predMap = new HashMap<>();
-        TransformationResult firstPassResult = firstPass(predMap, program);
-        if (!firstPassResult.isSuccess()) {
-            return SMTReturnCode.UNKNOWN;
-        }
-        program = firstPassResult.getProgram();
 
         if (applyMethodSummarisation(predMap)) {
             return SMTReturnCode.UNKNOWN;

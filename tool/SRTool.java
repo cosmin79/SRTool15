@@ -77,7 +77,16 @@ public class SRTool {
 		Program program = (Program) new AntlrToAstConverter().visit(ctx);
 		program = (Program) new DefaultVisitor(new HashMap<>()).visit(program);
 
+		// apply shadow visitor before passing it to the solver
+		program = (Program) new ShadowVisitor(new HashMap<>(), program).visit(program);
+		program = (Program) new DefaultVisitor(new HashMap<>()).visit(program);
+		debugUtil.print("Program after shadow visitor:\n" + new PrintVisitor().visit(program));
+
 		// This execution plan object will attempt to try multiple strategies before deciding
 		new ExecutionPlan(program, debugUtil, relativePathTest).verifyProgram();
+
+
+		//program = (Program) new InvariantGenVisitor(new HashMap<>(), program).visit(program);
+		//debugUtil.print("Program after loop invariant generation visitor:\n" + new PrintVisitor().visit(program));
 	}
 }

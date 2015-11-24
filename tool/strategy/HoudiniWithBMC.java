@@ -146,13 +146,7 @@ public class HoudiniWithBMC implements Callable<SMTReturnCode> {
     @Override
     public SMTReturnCode call() {
         Map<Node, Node> predMap = new HashMap<>();
-        TransformationResult shadowVisitorResult = applyShadowVisitor(predMap, program);
-        if (!shadowVisitorResult.isSuccess()) {
-            return SMTReturnCode.UNKNOWN;
-        }
-        program = shadowVisitorResult.getProgram();
         Set<Node> criticalFailures = program.getPotentiallyCriticalFailures();
-
         if (addCandidatePrePostConditions()) {
             return SMTReturnCode.UNKNOWN;
         }

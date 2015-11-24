@@ -2,6 +2,9 @@ package ast;
 
 import ast.visitor.Visitor;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class OldExpr extends AtomExpr {
 
     private VarRef var;
@@ -17,5 +20,18 @@ public class OldExpr extends AtomExpr {
     @Override
     public Object accept(Visitor visitor) {
         return visitor.visit(this);
+    }
+
+    @Override
+    public Set<String> getRefVars() {
+        Set<String> result = new HashSet<>();
+        result.add(var.getVarIdentifier().getVarName());
+
+        return result;
+    }
+
+    @Override
+    public Boolean isCandidateHoudini() {
+        return true;
     }
 }

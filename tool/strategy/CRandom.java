@@ -45,13 +45,6 @@ public class CRandom implements Callable<SMTReturnCode> {
         this.testPath = testPath;
     }
 
-    private boolean applyShadowVisitor(Map<Node, Node> predMap) {
-        program = (Program) new ShadowVisitor(predMap, program).visit(program);
-        program = (Program) new DefaultVisitor(predMap).visit(program);
-        debugUtil.print("Code after shadow visiting is applied:\n" + new PrintVisitor().visit(program));
-        return Thread.currentThread().isInterrupted();
-    }
-
     private boolean applyMethodSummarisation(Map<Node, Node> predMap) {
         program = (Program) new MethodSummarisationVisitor(predMap, program).visit(program);
         debugUtil.print("Code after method summarisation is applied:\n" + new PrintVisitor().visit(program));
@@ -108,9 +101,6 @@ public class CRandom implements Callable<SMTReturnCode> {
     @Override
     public SMTReturnCode call() {
         Map<Node, Node> predMap = new HashMap<>();
-        if (applyShadowVisitor(predMap)) {
-            return SMTReturnCode.UNKNOWN;
-        }
         if (applyMethodSummarisation(predMap)) {
             return SMTReturnCode.UNKNOWN;
         }

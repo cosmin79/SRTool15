@@ -2,6 +2,9 @@ package ast;
 
 import ast.visitor.Visitor;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class NumberExpr extends AtomExpr {
 
     public static final NumberExpr TRUE = new NumberExpr(1);
@@ -36,5 +39,15 @@ public class NumberExpr extends AtomExpr {
         NumberExpr otherNumber = (NumberExpr) other;
 
         return number == otherNumber.number;
+    }
+
+    @Override
+    public Set<String> getRefVars() {
+        return new HashSet<>();
+    }
+
+    @Override
+    public Boolean isCandidateHoudini() {
+        return true;
     }
 }

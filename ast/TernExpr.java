@@ -2,6 +2,9 @@ package ast;
 
 import ast.visitor.Visitor;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class TernExpr extends Expr {
 
     private Expr condition;
@@ -31,5 +34,20 @@ public class TernExpr extends Expr {
     @Override
     public Object accept(Visitor visitor) {
         return visitor.visit(this);
+    }
+
+    @Override
+    public Set<String> getRefVars() {
+        Set<String> result = new HashSet<>();
+        result.addAll(condition.getRefVars());
+        result.addAll(thenExpr.getRefVars());
+        result.addAll(elseExpr.getRefVars());
+
+        return result;
+    }
+
+    @Override
+    public Boolean isCandidateHoudini() {
+        return false;
     }
 }

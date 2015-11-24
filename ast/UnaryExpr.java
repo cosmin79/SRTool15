@@ -2,7 +2,14 @@ package ast;
 
 import ast.visitor.Visitor;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class UnaryExpr extends Expr {
+
+    private static final Set<String> usefulHoudiniOperators = new HashSet<String>() {{
+        add("-"); add("~");
+    }};
 
     private String unaryOp;
 
@@ -24,5 +31,15 @@ public class UnaryExpr extends Expr {
     @Override
     public Object accept(Visitor visitor) {
         return visitor.visit(this);
+    }
+
+    @Override
+    public Set<String> getRefVars() {
+        return arg.getRefVars();
+    }
+
+    @Override
+    public Boolean isCandidateHoudini() {
+        return usefulHoudiniOperators.contains(unaryOp);
     }
 }
