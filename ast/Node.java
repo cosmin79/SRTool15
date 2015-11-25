@@ -1,11 +1,8 @@
 package ast;
 
 import ast.visitor.Visitable;
-import ast.visitor.Visitor;
 
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 
 public abstract class Node implements Visitable {
@@ -16,10 +13,13 @@ public abstract class Node implements Visitable {
 
     private Set<WhileStmt> loops;
 
+    private Set<CallStmt> callStms;
+
     public Node() {
         this.modSet = new HashSet<>();
         this.potentialFailures = new HashSet<>();
         this.loops = new HashSet<>();
+        this.callStms = new HashSet<>();
     }
 
     public Set<String> getModSet() {
@@ -34,6 +34,10 @@ public abstract class Node implements Visitable {
         return loops;
     }
 
+    public Set<CallStmt> getCallStmts() {
+        return callStms;
+    }
+
     public Set<Node> getPotentiallyCriticalFailures() {
         Set<Node> criticalFailures = new HashSet<>();
         for (Node potentialFailure: potentialFailures) {
@@ -44,6 +48,10 @@ public abstract class Node implements Visitable {
         }
 
         return criticalFailures;
+    }
+
+    public void addModSet(Set<String> modSet) {
+        this.modSet.addAll(modSet);
     }
 
     public void addModSet(String varName) {
@@ -65,4 +73,12 @@ public abstract class Node implements Visitable {
     public void addLoops(Node other) { loops.addAll(other.getLoops()); }
 
     public void addLoop(WhileStmt loop) { loops.add(loop); }
+
+    public void addCall(CallStmt callStmt) {
+        callStms.add(callStmt);
+    }
+
+    public void addCalls(Node other) {
+        callStms.addAll(other.getCallStmts());
+    }
 }

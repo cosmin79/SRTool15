@@ -18,6 +18,7 @@ public class Program extends Node {
             addModSet(procedureDecl);
             addPotentialFailures(procedureDecl);
             addLoops(procedureDecl);
+            addCalls(procedureDecl);
         }
     }
 

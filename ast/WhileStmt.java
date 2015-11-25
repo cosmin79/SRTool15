@@ -23,6 +23,7 @@ public class WhileStmt extends Stmt {
         addPotentialFailures(body);
         addLoop(this);
         addLoops(body);
+        addCalls(body);
     }
 
     public Expr getCondition() {

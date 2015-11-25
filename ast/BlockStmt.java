@@ -15,6 +15,7 @@ public class BlockStmt extends Stmt {
             addModSet(stmt);
             addPotentialFailures(stmt);
             addLoops(stmt);
+            addCalls(stmt);
         }
     }
 

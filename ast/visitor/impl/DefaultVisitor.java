@@ -3,17 +3,30 @@ package ast.visitor.impl;
 import ast.*;
 import ast.visitor.Visitor;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class DefaultVisitor implements Visitor<Object> {
 
     protected Map<Node, Node> predMap;
 
+    private Map<String, ProcedureDecl> methodNameToProcedure;
+
     public DefaultVisitor(Map<Node, Node> predMap) {
         this.predMap = predMap;
+        methodNameToProcedure = new HashMap<>();
+    }
+
+    private Set<String> setDifference(Node given, Node target) {
+        Set<String> setDifference = new HashSet<>();
+        Set<String> givenModSet = given.getModSet();
+        Set<String> targetModSet = target.getModSet();
+        for (String modVar: givenModSet) {
+            if (!targetModSet.contains(modVar)) {
+                setDifference.add(modVar);
+            }
+        }
+
+        return setDifference;
     }
 
     @Override
@@ -27,6 +40,23 @@ public class DefaultVisitor implements Visitor<Object> {
 
         for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
             procedures.add((ProcedureDecl) procedureDecl.accept(this));
+            methodNameToProcedure.put(procedureDecl.getMethodName(), procedureDecl);
+        }
+
+        // solve modSet for calls
+        boolean change = true;
+        while (change) {
+            change = false;
+            for (ProcedureDecl procedureDecl: procedures) {
+                for (CallStmt callStmt: procedureDecl.getCallStmts()) {
+                    ProcedureDecl dependent = methodNameToProcedure.get(callStmt.getMethodName());
+                    Set<String> setDifference = setDifference(dependent, procedureDecl);
+                    if (!setDifference.isEmpty()) {
+                        procedureDecl.addModSet(setDifference);
+                        change = true;
+                    }
+                }
+            }
         }
 
         return new Program(globals, procedures);

@@ -20,6 +20,8 @@ public class IfStmt extends Stmt {
         addPotentialFailures(elseBlock);
         addLoops(thenBlock);
         addLoops(elseBlock);
+        addCalls(thenBlock);
+        addCalls(elseBlock);
     }
 
     public Expr getCondition() {

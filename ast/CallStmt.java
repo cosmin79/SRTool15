@@ -18,6 +18,7 @@ public class CallStmt extends Stmt {
         this.methodName = methodName;
         this.parametersList = parametersList;
         addModSet(lhsVar);
+        addCall(this);
     }
 
     public VarRef getLhsVar() {

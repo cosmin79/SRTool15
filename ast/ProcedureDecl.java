@@ -34,6 +34,7 @@ public class ProcedureDecl extends Node {
             addModSet(stmt);
             addPotentialFailures(stmt);
             addLoops(stmt);
+            addCalls(stmt);
         }
     }
 
