@@ -57,9 +57,19 @@ public class InvariantGenVisitor extends DefaultVisitor {
             }
         }
 
-        // TODO(ccarabet): add a candidate for a modified variable against every other defined variable
+        // add a candidate invariant for this var and any other defined var
+        for (String operator: operators) {
+            for (String lhsVar : modifiedVariables) {
+                for (String usedVar : usedVariables) {
+                    if (!lhsVar.equals(usedVar)) {
+                        loopInvariants.add(new CandidateInvariant(
+                                new BinaryExpr(operator, generateVarExpr(lhsVar), generateVarExpr(usedVar))));
+                    }
+                }
+            }
+        }
 
-        // add a candidate invariant for every modified variable
+        // add a candidate number invariant for every modified variable
         for (String operator: operators) {
             for (String lhsVar: modifiedVariables) {
                 for (Expr rhsExpr: usefulExprsSoFar()) {
@@ -89,7 +99,7 @@ public class InvariantGenVisitor extends DefaultVisitor {
         // filter out expressions that reference non defined variables
         List<Expr> result = new LinkedList<>();
         for (Expr candidateExpr: candidateExprs) {
-            if (isExprWellDefined(candidateExpr, usedVariables)) {
+            if (candidateExpr.getRefVars().isEmpty()) {
                 result.add(candidateExpr);
             }
         }
