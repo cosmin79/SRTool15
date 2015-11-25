@@ -3,15 +3,24 @@ from functools import partial
 import subprocess
 import os
 
-from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import Pool
+from multiprocessing import cpu_count
 
 correctSuffix   = "./tests/%s/correct/"
 incorrectSuffix = "./tests/%s/incorrect/"
 
-def appendSuffix(suffix, string) :
-  return suffix + string
+def prepareOutputfile():
+  output = "log/"
+  try:
+    output += subprocess.check_output(["git", "rev-parse", "HEAD"])
+    output = output.split("\n")[0]
+  except subprocess.CalledProcessError as exception:
+    output += "gitGetCommitFailed"
+    print exception.output
+  output += ".txt"
+  return output
 
-def runTest(expectedOutput, test):
+def runTest(test):
   cmd = ["./srtool"]
   cmd.append(test)
   try :
@@ -22,34 +31,47 @@ def runTest(expectedOutput, test):
 
   return (test, result)
 
-def runTests(expectedOutput, tests):
+def runTests(expectedOutput, tests, outputFile):
   results = []
-  pool = ThreadPool(len(tests))
+  pool = Pool(cpu_count())
   for test in tests:
-    results.append(pool.apply_async(runTest, args=(expectedOutput, test)))
+    print test
+    results.append(pool.apply_async(runTest, args=(test,)))
   pool.close()
   pool.join()
 
   results = map(lambda future: future.get(), results)
-  failedTests = filter(lambda (test, actual): expectedOutput != actual, results)
-  failedTests = map(lambda (test, actual): test, failedTests)
-
-  if len(failedTests) == 0:
-    print "All tests for %s passed!!!" % (expectedOutput)
+  failedTests = []
+  for (test, result) in results:
+    message = ""
+    if (result == expectedOutput):
+      message = "PASS"
+    else:
+      message = "FAIL"
+      failedTests.append(test)
+    outputFile.write(test + " " + message + "\n")
+  outputFile.write("--------------------------------------------------------\n")
+  outputFile.write("Summary: \n")
+  if (len(failedTests) == 0):
+    outputFile.write("Congrats! All tests passed!\n")
   else:
-    print len(failedTests), "tests failed for %s!" % (expectedOutput)
-    print "Following tests failed:"
-    for test in failedTests :
-      print "Test %s failed\n" % (test)
-
+    outputFile.write(str(len(failedTests)) + " tests have failed!\n")
 
 subprocess.call(["make"])
 
-correctTests = [correctSuffix % (folder) + file for folder in listdir("tests") if (os.path.isdir("tests/" + folder)) \
+correctTests = [correctSuffix % (folder) + file \
+                for folder in listdir("tests") \
+                  if (os.path.isdir("tests/" + folder)) \
                      for file in listdir(correctSuffix % (folder))]
 
-incorrectTests = [incorrectSuffix % (folder) + file for folder in listdir("tests") if (os.path.isdir("tests/" + folder)) \
-                for file in listdir(incorrectSuffix % (folder))]
+incorrectTests = [incorrectSuffix % (folder) + file \
+                  for folder in listdir("tests") \
+                    if (os.path.isdir("tests/" + folder)) \
+                      for file in listdir(incorrectSuffix % (folder))]
 
-runTests("CORRECT", correctTests)
-runTests("INCORRECT", incorrectTests)
+f = open(prepareOutputfile(), "w+")
+try:
+  runTests("CORRECT", correctTests, f)
+  runTests("INCORRECT", incorrectTests, f)
+finally:
+  f.close()

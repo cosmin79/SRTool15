@@ -1,0 +1,14 @@
+./tests/part2/correct/part2_correct_81.c PASS
+./tests/part2/correct/part2_correct_83.c PASS
+./tests/part2/correct/part2_correct_85.c PASS
+./tests/part2/correct/part2_correct_87.c PASS
+./tests/part2/correct/part2_correct_89.c PASS
+./tests/part2/correct/part2_correct_9.c FAIL
+./tests/part2/correct/part2_correct_91.c PASS
+./tests/part2/correct/part2_correct_93.c PASS
+./tests/part2/correct/part2_correct_95.c PASS
+./tests/part2/correct/part2_correct_97.c PASS
+./tests/part2/correct/part2_correct_99.c PASS
+--------------------------------------------------------
+Summary: 
+1 tests have failed!
