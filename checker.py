@@ -44,12 +44,11 @@ def runTests(expectedOutput, tests, outputFile):
   failedTests = []
   for (test, result) in results:
     message = ""
-    if (result == expectedOutput):
-      message = "PASS"
-    else:
-      message = "FAIL"
+    if (result != expectedOutput):
+      message = "FAIL: expected: %s, actual: %s" % (expectedOutput, result)
       failedTests.append(test)
-    outputFile.write(test + " " + message + "\n")
+      outputFile.write(test + " " + message + "\n")
+
   outputFile.write("--------------------------------------------------------\n")
   outputFile.write("Summary: \n")
   if (len(failedTests) == 0):

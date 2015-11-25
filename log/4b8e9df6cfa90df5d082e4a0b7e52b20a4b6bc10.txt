@@ -1,0 +1,38 @@
+./tests/loopAndCallFree/correct/simpleAss FAIL: expected: CORRECT, actual: UNKNOWN
+./tests/part2/correct/part2_correct_13.c FAIL: expected: CORRECT, actual: UNKNOWN
+./tests/part2/correct/part2_correct_21.c FAIL: expected: CORRECT, actual: UNKNOWN
+./tests/part2/correct/part2_correct_23.c FAIL: expected: CORRECT, actual: UNKNOWN
+./tests/part2/correct/part2_correct_29.c FAIL: expected: CORRECT, actual: UNKNOWN
+./tests/part2/correct/part2_correct_35.c FAIL: expected: CORRECT, actual: UNKNOWN
+./tests/part2/correct/part2_correct_39.c FAIL: expected: CORRECT, actual: UNKNOWN
+./tests/part2/correct/part2_correct_55.c FAIL: expected: CORRECT, actual: UNKNOWN
+./tests/part2/correct/part2_correct_9.c FAIL: expected: CORRECT, actual: UNKNOWN
+--------------------------------------------------------
+Summary: 
+9 tests have failed!
+./tests/part2/incorrect/part2_incorrect_107.c FAIL: expected: INCORRECT, actual: CORRECT
+./tests/part2/incorrect/part2_incorrect_11.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_13.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_145.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_15.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_17.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_21.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_23.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_25.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_31.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_33.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_35.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_37.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_43.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_45.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_49.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_61.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_63.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_65.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_69.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_81.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_9.c FAIL: expected: INCORRECT, actual: UNKNOWN
+./tests/part2/incorrect/part2_incorrect_91.c FAIL: expected: INCORRECT, actual: UNKNOWN
+--------------------------------------------------------
+Summary: 
+23 tests have failed!
