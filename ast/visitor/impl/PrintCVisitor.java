@@ -24,13 +24,30 @@ public class PrintCVisitor extends PrintVisitor {
 
     private static final String RAND_STMT = "srand(time(0));\n";
 
-    private Program program;
+    private String methodName;
 
     private Map<Node, Integer> nodeValues;
 
-    public PrintCVisitor(Program program, Map<Node, Integer> nodeValues) {
-        this.program = program;
+    public PrintCVisitor(String methodName, Map<Node, Integer> nodeValues) {
+        this.methodName = methodName;
         this.nodeValues = nodeValues;
+    }
+
+    @Override
+    public String visit(Program program) {
+        StringBuilder sb = new StringBuilder();
+
+        for (VarDecl varDecl: program.getVarDecls()) {
+            sb.append(varDecl.accept(this));
+        }
+
+        for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
+            if (procedureDecl.getMethodName().equals(methodName)) {
+                sb.append(procedureDecl.accept(this));
+            }
+        }
+
+        return sb.toString();
     }
 
     @Override
@@ -50,7 +67,8 @@ public class PrintCVisitor extends PrintVisitor {
         ident.push();
         sb.append(ident.getIndent() + RAND_STMT);
         for (FormalParam formalParam: procedureDecl.getParamList()) {
-            sb.append(ident.getIndent() + String.format(VAR_DECL, formalParam.getVarIdentifier().getVarName()));
+            String varName = formalParam.getVarIdentifier().getVarName();
+            sb.append(ident.getIndent() + String.format("int %s = %s;\n", varName, nodeValues.get(formalParam)));
         }
 
         // add statements
@@ -70,22 +88,13 @@ public class PrintCVisitor extends PrintVisitor {
     @Override
     public String visit(HavocStmt havocStmt) {
         String varName = (String) havocStmt.getVar().accept(this);
-        String value = String.format(HAVOC_VAR, varName);
-        if (nodeValues.containsKey(havocStmt)) {
-            value = nodeValues.get(havocStmt).toString();
-        }
-        return ident.getIndent() + value;
+        return ident.getIndent() + String.format("%s = %s;\n", varName, nodeValues.get(havocStmt));
     }
 
     @Override
     public String visit(VarDecl varDecl) {
         String varName = (String) varDecl.getVarIdentifier().accept(this);
-        String value = String.format(VAR_DECL, varName);
-        if (nodeValues.containsKey(varDecl)) {
-            value = String.format("int %s = %s;\n", varName, nodeValues.get(varDecl));
-        }
-
-        return ident.getIndent() + value;
+        return ident.getIndent() + String.format("int %s = %s;\n", varName, nodeValues.get(varDecl));
     }
 
     @Override

@@ -114,13 +114,11 @@ public class ToCVisitor extends DefaultVisitor {
         stmtList.addAll(invariantStmts);
 
         List<Stmt> newWhileBodyStmts = new LinkedList<>();
-        newWhileBodyStmts.addAll(invariantStmts);
         newWhileBodyStmts.add(body);
+        newWhileBodyStmts.addAll(invariantStmts);
         BlockStmt newWhileBody = new BlockStmt(newWhileBodyStmts);
         // add new while (containing the required assertions)
         stmtList.add(new WhileStmt(condition, new LinkedList<>(), newWhileBody));
-        // verify invariants afterwards
-        stmtList.addAll(invariantStmts);
 
         return new BlockStmt(stmtList);
     }

@@ -98,7 +98,10 @@ public class DefaultVisitor implements Visitor<Object> {
 
     @Override
     public Object visit(FormalParam formalParam) {
-        return new FormalParam((VarIdentifier) formalParam.getVarIdentifier().accept(this));
+        FormalParam newFormalParam = new FormalParam((VarIdentifier) formalParam.getVarIdentifier().accept(this));
+        predMap.put(newFormalParam, formalParam);
+
+        return newFormalParam;
     }
 
     @Override

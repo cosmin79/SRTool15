@@ -46,7 +46,9 @@ public class SSAVisitor extends DefaultVisitor {
 
         // add parameters to stack
         for (FormalParam param: procedureDecl.getParamList()) {
-            scopesHandler.addVariable(param.getVarIdentifier().getVarName());
+            String varName = param.getVarIdentifier().getVarName();
+            scopesHandler.addVariable(varName);
+            varToDeclNode.put(scopesHandler.latestVar(varName), param);
         }
 
         // handle preconditions

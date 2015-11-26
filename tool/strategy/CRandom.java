@@ -114,11 +114,6 @@ public class CRandom implements Callable<SMTReturnCode> {
         if (applyNonCFeaturesRemoval(predMap)) {
             return SMTReturnCode.UNKNOWN;
         }
-        // assign unique method names i.e. foo0, foo1..
-        int numMethods = 0;
-        for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
-            procedureDecl.setMethodName(String.format(METHOD, numMethods++));
-        }
 
         Program targetProgram = program;
 
@@ -138,7 +133,9 @@ public class CRandom implements Callable<SMTReturnCode> {
 
             if (smtResult.getReturnCode() == SMTReturnCode.INCORRECT) {
                 String code = INCLUDE_ASSERT_LIBRARY + DIV_FUNC + LEFT_SHIFT_FUNC +
-                        new PrintCVisitor(targetProgram, SmtUtil.getNodeValues(predMap, smtResult)).visit(targetProgram);
+                        new PrintCVisitor(
+                                proc.getMethodName(),
+                                SmtUtil.getNodeValues(predMap, smtResult)).visit(targetProgram);
                 SMTReturnCode returnCode = verifyMethod(proc.getMethodName(), code);
                 if (returnCode == SMTReturnCode.INCORRECT) {
                     return returnCode;

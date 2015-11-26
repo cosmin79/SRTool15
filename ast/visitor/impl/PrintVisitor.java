@@ -54,7 +54,7 @@ public class PrintVisitor implements Visitor<String> {
 
     protected static final String OLD_EXPR = "\\old(%s)";
 
-    protected static final String TERN_EXPR = "%s ? %s : %s";
+    protected static final String TERN_EXPR = "(%s ? %s : %s)";
 
     protected static final String BINARY_EXPR = "(%s %s %s)";
 
