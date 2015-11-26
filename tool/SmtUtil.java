@@ -154,4 +154,19 @@ public class SmtUtil {
 
         return result;
     }
+
+    public static Map<Node, Integer> getNodeValues(Map<Node, Node> predMap, SMTResult smtResult) {
+        Map<Node, Integer> nodeValues = new HashMap<>();
+        Iterator<Map.Entry<Node, Integer>> varValuesIterator = smtResult.getVarNodeToValue().entrySet().iterator();
+        while (varValuesIterator.hasNext()) {
+            Map.Entry<Node, Integer> currVariable = varValuesIterator.next();
+            Node varNode = currVariable.getKey();
+            while (varNode != null) {
+                nodeValues.put(varNode, currVariable.getValue());
+                varNode = predMap.get(varNode);
+            }
+        }
+
+        return nodeValues;
+    }
 }

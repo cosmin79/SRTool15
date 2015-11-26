@@ -67,6 +67,7 @@ public class DefaultVisitor implements Visitor<Object> {
         String varName = varDecl.getVarIdentifier().getVarName();
         VarDecl newVarDecl = new VarDecl((VarIdentifier) varDecl.getVarIdentifier().accept(this));
         newVarDecl.addModSet(varName);
+        predMap.put(newVarDecl, varDecl);
 
         return newVarDecl;
     }
@@ -163,6 +164,7 @@ public class DefaultVisitor implements Visitor<Object> {
         String varName = havocStmt.getVar().getVarIdentifier().getVarName();
         HavocStmt newHavocStmt = new HavocStmt((VarRef) havocStmt.getVar().accept(this));
         newHavocStmt.addModSet(varName);
+        predMap.put(newHavocStmt, havocStmt);
 
         return newHavocStmt;
     }

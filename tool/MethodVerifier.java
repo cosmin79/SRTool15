@@ -8,15 +8,20 @@ import util.ProcessExec;
 import util.ProcessTimeoutException;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MethodVerifier {
 
     private static final int TIMEOUT = 30;
 
     private static final String BOOL_FAILED_REGEX = "%s false";
+
+    private static final String VAR_REGEX = "%s \\(_ bv([0-9]+) 32\\)";
 
     private final Program program;
 
@@ -47,7 +52,9 @@ public class MethodVerifier {
         if (queryResult.startsWith("sat")) {
             // obtain failed assertions
             List<AssertStmt> failedAssertions = parseFailedAssertions(queryResult, vcResult.getBooleanToAssert());
-            return new SMTResult(SMTReturnCode.INCORRECT, failedAssertions);
+            return new SMTResult(SMTReturnCode.INCORRECT,
+                    failedAssertions,
+                    parseVariablesValue(queryResult, vcResult.getVarToNode()));
         }
 
         if (!queryResult.startsWith("unsat")) {
@@ -66,5 +73,29 @@ public class MethodVerifier {
         }
 
         return failedAsserts;
+    }
+
+    private Integer parseUnsignedString(String no) {
+        Long longUnsgined = Long.parseLong(no);
+        Long firstBit = Long.valueOf(1 << 31);
+        if ((longUnsgined & firstBit) > 0) {
+            return Math.toIntExact(-(firstBit - (longUnsgined ^ firstBit)));
+        }
+
+        return Math.toIntExact(longUnsgined);
+    }
+
+    // Kind of inefficient I suppose
+    private Map<Node, Integer> parseVariablesValue(String queryResult, Map<String, Node> varToNode) {
+        Map<Node, Integer> variableValue = new HashMap<>();
+        for (Map.Entry<String, Node> entryVarNode: varToNode.entrySet()) {
+            String regexPattern = String.format(VAR_REGEX, entryVarNode.getKey());
+            Pattern p = Pattern.compile(regexPattern);
+            Matcher m = p.matcher(queryResult);
+            m.find();
+            variableValue.put(entryVarNode.getValue(), parseUnsignedString(m.group(1)));
+        }
+
+        return variableValue;
     }
 }

@@ -13,7 +13,7 @@ public class ExecutionPlan {
     private DebugUtil debugUtil;
     private final Program program;
     private final String testPath;
-    private final int TIMEOUT = 155;
+    private final int TIMEOUT = 150;
 
     public ExecutionPlan(Program program, DebugUtil debugUtil, String testPath) {
         this.program = program;
@@ -56,7 +56,27 @@ public class ExecutionPlan {
         return retCode;
     }
 
+    private boolean containsCandidatePrePost() {
+        for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
+            for (PrePostCondition prePostCondition: procedureDecl.getPrePostConditions()) {
+                if (prePostCondition instanceof CandidatePrecondition ||
+                        prePostCondition instanceof CandidatePostcondition) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public void verifyProgram() {
+        if (!containsCandidatePrePost()) {
+            SMTReturnCode returnCode = new CRandom(program, debugUtil, testPath).call();
+            if (returnCode == SMTReturnCode.INCORRECT) {
+                decide(SMTReturnCode.INCORRECT);
+            }
+        }
+
         ExecutorService executor = Executors.newFixedThreadPool(3);
         CompletionService<SMTReturnCode> completionService = new ExecutorCompletionService<>(executor);
 

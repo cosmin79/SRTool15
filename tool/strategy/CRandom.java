@@ -4,12 +4,11 @@ import ast.Node;
 import ast.ProcedureDecl;
 import ast.Program;
 import ast.visitor.impl.*;
-import tool.DebugUtil;
-import tool.SMTReturnCode;
-import tool.SRTool;
+import tool.*;
 import util.ProcessExec;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,11 +24,13 @@ public class CRandom implements Callable<SMTReturnCode> {
 
     private static final String MAIN = "main";
 
-    private static final String INCLUDE_ASSERT_LIBRARY = "#include <cassert>\n#include <ctime>\n#include <cstdlib>\n";
+    private static final String INCLUDE_ASSERT_LIBRARY = "#include <cassert>\n" +
+            "#include <ctime>\n" +
+            "#include <cstdlib>\n";
 
     private static final String DIV_FUNC = "int mydiv(int a, int b) { return !b ? a : a / b;}\n";
 
-    private static final String LEFT_SHIFT_FUNC = "int myleftshift(int a, int b) { return b >= 32 ? 0 : a;}\n";
+    private static final String LEFT_SHIFT_FUNC = "int myleftshift(int a, int b) { return b >= 32 ? 0 : (a << b);}\n";
 
     private static final String METHOD = "foo%s";
 
@@ -54,6 +55,12 @@ public class CRandom implements Callable<SMTReturnCode> {
     private boolean applyNonCFeaturesRemoval(Map<Node, Node> predMap) {
         program = (Program) new ToCVisitor(predMap, program).visit(program);
         debugUtil.print("All non C features removed:\n" + new PrintVisitor().visit(program));
+        return Thread.currentThread().isInterrupted();
+    }
+
+    private boolean applyLoopSummarisation(Map<Node, Node> predMap) {
+        program = (Program) new LoopSummarisationVisitor(predMap).visit(program);
+        debugUtil.print("Code after loop summarisation is applied:\n" + new PrintVisitor().visit(program));
         return Thread.currentThread().isInterrupted();
     }
 
@@ -107,21 +114,33 @@ public class CRandom implements Callable<SMTReturnCode> {
         if (applyNonCFeaturesRemoval(predMap)) {
             return SMTReturnCode.UNKNOWN;
         }
-
         // assign unique method names i.e. foo0, foo1..
         int numMethods = 0;
         for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
             procedureDecl.setMethodName(String.format(METHOD, numMethods++));
         }
 
-        String code = INCLUDE_ASSERT_LIBRARY + DIV_FUNC + LEFT_SHIFT_FUNC + new PrintCVisitor(program).visit(program);
-        debugUtil.print("Final C program:\n" + code + "\n");
+        Program targetProgram = program;
 
-        // verify each method
-        for (int noIterations = 0; noIterations < MAX_ITERATIONS; noIterations++) {
-            for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
-                SMTReturnCode returnCode = verifyMethod(procedureDecl.getMethodName(), code);
-                if (returnCode == SMTReturnCode.INCORRECT || returnCode == SMTReturnCode.UNKNOWN) {
+        // applying loop summary in an attempt to find bad inputs
+        if (applyLoopSummarisation(predMap)) {
+            return SMTReturnCode.UNKNOWN;
+        }
+
+        MethodVerifier methodVerifier = new MethodVerifier(predMap, program, debugUtil);
+        for(ProcedureDecl proc: program.getProcedureDecls()) {
+            SMTResult smtResult;
+            try {
+                smtResult = methodVerifier.verifyMethod(proc);
+            } catch (Exception e) {
+                return SMTReturnCode.UNKNOWN;
+            }
+
+            if (smtResult.getReturnCode() == SMTReturnCode.INCORRECT) {
+                String code = INCLUDE_ASSERT_LIBRARY + DIV_FUNC + LEFT_SHIFT_FUNC +
+                        new PrintCVisitor(targetProgram, SmtUtil.getNodeValues(predMap, smtResult)).visit(targetProgram);
+                SMTReturnCode returnCode = verifyMethod(proc.getMethodName(), code);
+                if (returnCode == SMTReturnCode.INCORRECT) {
                     return returnCode;
                 }
             }

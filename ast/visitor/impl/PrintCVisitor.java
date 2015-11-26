@@ -2,6 +2,8 @@ package ast.visitor.impl;
 
 import ast.*;
 
+import java.util.Map;
+
 public class PrintCVisitor extends PrintVisitor {
 
     private static final String VAR_DECL = "int %s = rand();\n";
@@ -24,8 +26,11 @@ public class PrintCVisitor extends PrintVisitor {
 
     private Program program;
 
-    public PrintCVisitor(Program program) {
+    private Map<Node, Integer> nodeValues;
+
+    public PrintCVisitor(Program program, Map<Node, Integer> nodeValues) {
         this.program = program;
+        this.nodeValues = nodeValues;
     }
 
     @Override
@@ -64,15 +69,23 @@ public class PrintCVisitor extends PrintVisitor {
 
     @Override
     public String visit(HavocStmt havocStmt) {
-        return ident.getIndent() + String.format(HAVOC_VAR, havocStmt.getVar().accept(this));
+        String varName = (String) havocStmt.getVar().accept(this);
+        String value = String.format(HAVOC_VAR, varName);
+        if (nodeValues.containsKey(havocStmt)) {
+            value = nodeValues.get(havocStmt).toString();
+        }
+        return ident.getIndent() + value;
     }
 
     @Override
     public String visit(VarDecl varDecl) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(ident.getIndent() + String.format(VAR_DECL, varDecl.getVarIdentifier().accept(this)));
+        String varName = (String) varDecl.getVarIdentifier().accept(this);
+        String value = String.format(VAR_DECL, varName);
+        if (nodeValues.containsKey(varDecl)) {
+            value = String.format("int %s = %s;\n", varName, nodeValues.get(varDecl));
+        }
 
-        return sb.toString();
+        return ident.getIndent() + value;
     }
 
     @Override

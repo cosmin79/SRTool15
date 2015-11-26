@@ -13,9 +13,13 @@ class VCResult {
 	// this map matches condI to the right AssertNode in the last AST
 	private Map<String, AssertStmt> booleanToAssert;
 
-	public VCResult(String query, Map<String, AssertStmt> booleanToAssert) {
+	// Similarly, this maps every variable name to the last Node it came from (either a VarDecl or a HavocStmt node)
+	private Map<String, Node> varToNode;
+
+	public VCResult(String query, Map<String, AssertStmt> booleanToAssert, Map<String, Node> varToNode) {
 		this.query = query;
 		this.booleanToAssert = booleanToAssert;
+		this.varToNode = varToNode;
 	}
 
 	public String getQuery() {
@@ -24,6 +28,10 @@ class VCResult {
 
 	public Map<String, AssertStmt> getBooleanToAssert() {
 		return booleanToAssert;
+	}
+
+	public Map<String, Node> getVarToNode() {
+		return varToNode;
 	}
 }
 
@@ -42,6 +50,8 @@ public class VCGenerator {
 	private static final String NOT_AND_ASSERT = "(assert (not (and %s)))\n";
 
 	private static final String NOT_ASSERT = "(assert (not %s))\n";
+
+	private static final String GET_INPUT = "(get-value (%s))\n";
 
 	private Program program;
 
@@ -64,7 +74,8 @@ public class VCGenerator {
 	public VCResult generateVC() {
 		// Transform method to SSA
 		VariableIdsGenerator idsGenerator = new VariableIdsGenerator();
-		BlockStmt ssaBlock = (BlockStmt) new SSAVisitor(predMap, program, idsGenerator).visit(proc);
+		SSAVisitor ssaVisitor = new SSAVisitor(predMap, program, idsGenerator);
+		BlockStmt ssaBlock = (BlockStmt) ssaVisitor.visit(proc);
 		debugUtil.print("Result after SSA visitor:\n" + new PrintVisitor().visit(ssaBlock));
 
 		// this visitor generates SMT code
@@ -73,15 +84,19 @@ public class VCGenerator {
 
 		StringBuilder result = new StringBuilder("(set-logic QF_BV)\n");
 		result.append("(set-option :produce-models true)\n");
+		result.append("(set-option :pp.bv-literals false)\n");
 		result.append("(define-fun tobv32 ((p Bool)) (_ BitVec 32) (ite p (_ bv1 32) (_ bv0 32)))\n");
 		result.append("(define-fun tobool ((p (_ BitVec 32))) Bool (ite (= p (_ bv0 32)) false true))\n");
 		result.append("(define-fun bvdiv ((x (_ BitVec 32)) (y (_ BitVec 32))) (_ BitVec 32)" +
 			"(ite (not (= y (_ bv0 32))) (bvsdiv x y) x ))\n");
 
+		StringBuilder sb = new StringBuilder();
 		// add variables used throughout the program
 		for (String var: idsGenerator.listAllUsedVariables()) {
 			result.append(String.format(VAR_ENTRY, var));
+			sb.append(var + SPACE);
 		}
+		String spaceSepVars = sb.toString();
 
 		// add facts known
 		for (String fact: visitorGen.getFacts()) {
@@ -105,7 +120,7 @@ public class VCGenerator {
 		}
 
 		// space separated cond
-		StringBuilder sb = new StringBuilder();
+		sb = new StringBuilder();
 		for (String boolCond: booleanToCond.keySet()) {
 			sb.append(boolCond + SPACE);
 		}
@@ -120,12 +135,15 @@ public class VCGenerator {
 
 		result.append("\n(check-sat)\n");
 		if (!booleanToCond.isEmpty()) {
-			result.append(String.format("(get-value (%s))\n", spaceSepCond));
+			result.append(String.format(GET_INPUT, spaceSepCond));
+		}
+		if (!spaceSepVars.isEmpty()) {
+			result.append(String.format(GET_INPUT, spaceSepVars));
 		}
 
 		debugUtil.print("Returned SMT query:\n\n" + result.toString() + "\n");
 
-		return new VCResult(result.toString(), booleanToAssert);
+		return new VCResult(result.toString(), booleanToAssert, ssaVisitor.getVarToDeclNode());
 	}
 
 }

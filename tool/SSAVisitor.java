@@ -3,20 +3,26 @@ package tool;
 import ast.*;
 import ast.visitor.impl.DefaultVisitor;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class SSAVisitor extends DefaultVisitor {
 
     private ScopesHandler scopesHandler;
 
+    private Map<String, Node> varToDeclNode;
+
+    public Map<String, Node> getVarToDeclNode() {
+        return varToDeclNode;
+    }
+
     public SSAVisitor(Map<Node, Node> predMap, Program program, VariableIdsGenerator variableIdsGenerator) {
         super(predMap);
         scopesHandler = new ScopesHandler(variableIdsGenerator);
+        varToDeclNode = new HashMap<>();
         for (VarDecl varDecl: program.getVarDecls()) {
-            scopesHandler.addGlobalVariable(varDecl.getVarIdentifier().getVarName());
+            String varName = varDecl.getVarIdentifier().getVarName();
+            scopesHandler.addGlobalVariable(varName);
+            varToDeclNode.put(scopesHandler.latestVar(varName), varDecl);
         }
     }
 
@@ -24,6 +30,7 @@ public class SSAVisitor extends DefaultVisitor {
     public Object visit(VarDecl varDecl) {
         String varName = varDecl.getVarIdentifier().getVarName();
         scopesHandler.addVariable(varName);
+        varToDeclNode.put(scopesHandler.latestVar(varName), varDecl);
 
         BlockStmt blockStmt = new BlockStmt();
         blockStmt.addModSet(varName);
@@ -126,6 +133,7 @@ public class SSAVisitor extends DefaultVisitor {
     public Object visit(HavocStmt havocStmt) {
         String varName = havocStmt.getVar().getVarIdentifier().getVarName();
         scopesHandler.addVariable(varName);
+        varToDeclNode.put(scopesHandler.latestVar(varName), havocStmt);
 
         BlockStmt result = new BlockStmt();
         result.addModSet(varName);
