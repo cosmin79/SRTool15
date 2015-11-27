@@ -11,14 +11,14 @@ public class InvariantGenVisitor extends DefaultVisitor {
     // those are operators that we're going to use
     private final List<String> operators = Arrays.asList("<", "<=", "==", "!=", ">=", ">");
 
-    private static final Expr ONE = new NumberExpr(1);
+    private static final Expr ONE = new NumberExpr(Long.valueOf(1));
 
-    private static final Expr MINUS_ONE = new UnaryExpr("-", new NumberExpr(1));
+    private static final Expr MINUS_ONE = new UnaryExpr("-", new NumberExpr(Long.valueOf(1)));
 
     boolean isInsideLoopCond;
 
     private final List<Expr> interestingConstants = Arrays.asList(
-            MINUS_ONE, new NumberExpr(0), ONE);
+            MINUS_ONE, new NumberExpr(Long.valueOf(0)), ONE);
 
     private ScopesHandler scopesHandler;
 

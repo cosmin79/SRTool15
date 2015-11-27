@@ -307,7 +307,7 @@ public class AntlrToAstConverter extends SimpleCBaseVisitor<Node> {
 
     @Override
     public Node visitNumberExpr(NumberExprContext ctx) {
-        return new NumberExpr(Integer.parseInt(ctx.number.getText()));
+        return new NumberExpr(Long.parseLong(ctx.number.getText()));
     }
 
     @Override

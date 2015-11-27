@@ -16,8 +16,6 @@ import java.util.concurrent.Callable;
 
 public class CRandom implements Callable<SMTReturnCode> {
 
-    private static final int MAX_ITERATIONS = 2;
-
     private static final int COMPILE_TIMEOUT = 2;
 
     private static final int RUN_TIMEOUT = 3;
@@ -28,9 +26,28 @@ public class CRandom implements Callable<SMTReturnCode> {
             "#include <ctime>\n" +
             "#include <cstdlib>\n";
 
-    private static final String DIV_FUNC = "int mydiv(int a, int b) { return !b ? a : a / b;}\n";
+    private static final String LAST_32_BITS = "const long long LAST_32_BITS = (1LL << 32) - 1;\n";
 
-    private static final String LEFT_SHIFT_FUNC = "int myleftshift(int a, int b) { return b >= 32 ? 0 : (a << b);}\n";
+    private static final String DIV_FUNC = "inline int mydiv(int a, int b) {" +
+            "return !b ? a : a / b;}\n";
+
+    private static final String MOD_FUNC = "inline int mymod(int a, int b) {" +
+            "return !b ? a : a % b;}\n";
+
+    private static final String ADD_FUNC = "inline int myadd(int a, int b) {" +
+            "return (int)((1LL * a + b) & LAST_32_BITS);}\n";
+
+    private static final String SUB_FUNC = "inline int mysub(int a, int b) {" +
+            "return (int)((1LL * a - b) & LAST_32_BITS);}\n";
+
+    private static final String MUL_FUNC = "inline int mymul(int a, int b) {" +
+            "return (int)((1LL * a * b) & LAST_32_BITS);}\n";
+
+    private static final String LEFT_SHIFT_FUNC = "inline int myleftshift(int a, int b) {" +
+            "return b >= 32 ? 0 : (a << b);}\n";
+
+    private static final String RIGHT_SHIFT_FUNC = "inline int myrightshift(int a, int b) {" +
+            "b = b > 32 ? 32 : b; return a >> b;}\n";
 
     private static final String METHOD = "foo%s";
 
@@ -71,7 +88,6 @@ public class CRandom implements Callable<SMTReturnCode> {
         String folderPrefix = SRTool.BIN_DIR + "/start_";
         String currSource = folderPrefix + testPath + ".cpp";
 
-        // compile program
         try {
             PrintWriter writer = new PrintWriter(currSource);
             writer.println(program);
@@ -80,15 +96,19 @@ public class CRandom implements Callable<SMTReturnCode> {
             return SMTReturnCode.UNKNOWN;
         }
 
+        // compile program
         String execFile = folderPrefix + testPath;
-        // run program
         try {
             ProcessExec process = new ProcessExec("g++", currSource, "-o", execFile);
             process.execute("", COMPILE_TIMEOUT);
+            if (process.stderr != null && process.stderr.contains("error")) {
+                return SMTReturnCode.UNKNOWN;
+            }
         } catch (Exception e) {
             return SMTReturnCode.UNKNOWN;
         }
 
+        // run program
         ProcessExec process = new ProcessExec("./" + execFile);
         try {
             process.execute("", RUN_TIMEOUT);
@@ -132,7 +152,15 @@ public class CRandom implements Callable<SMTReturnCode> {
             }
 
             if (smtResult.getReturnCode() == SMTReturnCode.INCORRECT) {
-                String code = INCLUDE_ASSERT_LIBRARY + DIV_FUNC + LEFT_SHIFT_FUNC +
+                String code = INCLUDE_ASSERT_LIBRARY +
+                        LAST_32_BITS +
+                        DIV_FUNC +
+                        MOD_FUNC +
+                        ADD_FUNC +
+                        SUB_FUNC +
+                        MUL_FUNC +
+                        LEFT_SHIFT_FUNC +
+                        RIGHT_SHIFT_FUNC +
                         new PrintCVisitor(
                                 proc.getMethodName(),
                                 SmtUtil.getNodeValues(predMap, smtResult)).visit(targetProgram);

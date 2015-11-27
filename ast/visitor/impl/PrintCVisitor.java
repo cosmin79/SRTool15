@@ -6,10 +6,6 @@ import java.util.Map;
 
 public class PrintCVisitor extends PrintVisitor {
 
-    private static final String VAR_DECL = "int %s = rand();\n";
-
-    private static final String HAVOC_VAR = "%s = rand();\n";
-
     private static final String IF_NOT_RETURN = "if (!(%s)) return 0;\n";
 
     private static final String IF_STMT = "if (%s) \n";
@@ -20,7 +16,17 @@ public class PrintCVisitor extends PrintVisitor {
 
     private static final String SPEC_DIV = "mydiv(%s, %s)";
 
-    private static final String LEFT_SHIFT = "myleftshift(%s, %s)";
+    private static final String SPEC_MOD = "mymod(%s, %s)";
+
+    private static final String SPEC_ADD = "myadd(%s, %s)";
+
+    private static final String SPEC_SUB = "mysub(%s, %s)";
+
+    private static final String SPEC_MUL = "mymul(%s, %s)";
+
+    private static final String SPEC_LEFT_SHIFT = "myleftshift(%s, %s)";
+
+    private static final String SPEC_RIGHT_SHIFT = "myrightshift(%s, %s)";
 
     private static final String RAND_STMT = "srand(time(0));\n";
 
@@ -127,11 +133,24 @@ public class PrintCVisitor extends PrintVisitor {
     public String visit(BinaryExpr binaryExpr) {
         String lhs = (String) binaryExpr.getLhs().accept(this);
         String rhs = (String) binaryExpr.getRhs().accept(this);
-        if (binaryExpr.getBinaryOp().equals("/")) {
-            return String.format(SPEC_DIV, lhs, rhs);
-        } else if (binaryExpr.getBinaryOp().equals("<<")) {
-            return String.format(LEFT_SHIFT, lhs, rhs);
+        String op = binaryExpr.getBinaryOp();
+        switch (op) {
+            case "/":
+                return String.format(SPEC_DIV, lhs, rhs);
+            case "%":
+                return String.format(SPEC_MOD, lhs, rhs);
+            case "+":
+                return String.format(SPEC_ADD, lhs, rhs);
+            case "-":
+                return String.format(SPEC_SUB, lhs, rhs);
+            case "*":
+                return String.format(SPEC_MUL, lhs, rhs);
+            case "<<":
+                return String.format(SPEC_LEFT_SHIFT, lhs, rhs);
+            case ">>":
+                return String.format(SPEC_RIGHT_SHIFT, lhs, rhs);
         }
+
         return super.visit(binaryExpr);
     }
 }

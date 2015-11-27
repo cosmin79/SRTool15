@@ -89,6 +89,8 @@ public class VCGenerator {
 		result.append("(define-fun tobool ((p (_ BitVec 32))) Bool (ite (= p (_ bv0 32)) false true))\n");
 		result.append("(define-fun bvdiv ((x (_ BitVec 32)) (y (_ BitVec 32))) (_ BitVec 32)" +
 			"(ite (not (= y (_ bv0 32))) (bvsdiv x y) x ))\n");
+		result.append("(define-fun bvmod ((x (_ BitVec 32)) (y (_ BitVec 32))) (_ BitVec 32)" +
+				"(ite (not (= y (_ bv0 32))) (bvsrem x y) x ))\n");
 
 		StringBuilder sb = new StringBuilder();
 		// add variables used throughout the program

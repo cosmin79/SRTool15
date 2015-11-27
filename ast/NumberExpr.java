@@ -7,17 +7,17 @@ import java.util.Set;
 
 public class NumberExpr extends AtomExpr {
 
-    public static final NumberExpr TRUE = new NumberExpr(1);
+    public static final NumberExpr TRUE = new NumberExpr(Long.valueOf(1));
 
-    public static final NumberExpr FALSE = new NumberExpr(0);
+    public static final NumberExpr FALSE = new NumberExpr(Long.valueOf(0));
 
-    private Integer number;
+    private Long number;
 
-    public NumberExpr(Integer number) {
+    public NumberExpr(Long number) {
         this.number = number;
     }
 
-    public Integer getNumber() {
+    public Long getNumber() {
         return number;
     }
 
@@ -28,7 +28,7 @@ public class NumberExpr extends AtomExpr {
 
     @Override
     public int hashCode() {
-        return number;
+        return number.hashCode();
     }
 
     @Override
