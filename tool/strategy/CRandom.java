@@ -61,26 +61,28 @@ public class CRandom implements Callable<SMTResult> {
 
     private Map<Node, Node> parentStrategyPredMap;
 
-    public CRandom(Program program, DebugUtil debugUtil, String testPath, SMTResult smtResult, Map<Node, Node> predMap) {
+    private String strategyName;
+
+    public CRandom(
+            String strategyName,
+            Program program,
+            DebugUtil debugUtil,
+            String testPath,
+            SMTResult smtResult,
+            Map<Node, Node> predMap) {
         this.program = program;
         this.debugUtil = debugUtil;
         this.testPath = testPath;
         this.smtResult = smtResult;
+        this.strategyName = strategyName;
         parentStrategyPredMap = predMap;
-    }
-
-    private Boolean applyNonCFeaturesRemoval() {
-        program = (Program) new ToCVisitor(new HashMap<>(), program, smtResult.getVarNodeToValue()).visit(program);
-        debugUtil.print("All non C features removed:\n" + new PrintVisitor().visit(program));
-
-        return Thread.currentThread().isInterrupted();
     }
 
     private SMTReturnCode verifyMethod(String methodName, String program) {
         program = program.replaceFirst(methodName, MAIN);
         debugUtil.print("Program this iteration:\n" + program);
 
-        String folderPrefix = SRTool.BIN_DIR + "/start_";
+        String folderPrefix = SRTool.BIN_DIR + "/start_" + strategyName + "_";
         String currSource = folderPrefix + testPath + ".cpp";
 
         try {

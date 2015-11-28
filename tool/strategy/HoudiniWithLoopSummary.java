@@ -11,17 +11,23 @@ import java.util.concurrent.Callable;
 
 public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
 
+    protected String strategyName;
+
     protected Program program;
 
     private DebugUtil debugUtil;
 
+    private String testPath;
+
     // Those are candidate preconditions, postconditions and loop invariants
     private Set<Node> consideredCandidates;
 
-    public HoudiniWithLoopSummary(Program program, DebugUtil debugUtil) {
+    public HoudiniWithLoopSummary(Program program, DebugUtil debugUtil, String testPath) {
         this.program = program;
         this.debugUtil = debugUtil;
+        this.testPath = testPath;
         consideredCandidates = new HashSet<>();
+        this.strategyName = "houdiniLoopSummary";
     }
 
     private boolean addCandidatePrePostConditions() {
@@ -80,11 +86,15 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
                             visit(program);
             debugUtil.print("Program being considered in this HoudiniWithLoopSummary iteration:\n" +
                     new PrintVisitor().visit(intermediateProgram));
+
             intermediateProgram =
                     (Program) new MethodSummarisationVisitor(predMap, intermediateProgram).
                             visit(intermediateProgram);
             debugUtil.print("Code after method summarisation is applied:\n" +
                     new PrintVisitor().visit(intermediateProgram));
+
+            Program programWithoutCalls = intermediateProgram;
+
             intermediateProgram =
                     (Program) new LoopSummarisationVisitor(predMap).
                             visit(intermediateProgram);
@@ -112,8 +122,27 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
                             result,
                             criticalFailures,
                             failedNodes);
-                    if (code != SMTReturnCode.CORRECT) {
-                        return code;
+
+                    if (code == SMTReturnCode.UNKNOWN) {
+                        return SMTReturnCode.UNKNOWN;
+                    } else if (code == SMTReturnCode.INCORRECT) {
+                        if (program.getLoops().isEmpty()) {
+                            return SMTReturnCode.INCORRECT;
+                        } else if (program.containsCandidatePrePost()) {
+                            return SMTReturnCode.UNKNOWN;
+                        } else {
+                            SMTResult cResult = new CRandom(
+                                    strategyName,
+                                    programWithoutCalls,
+                                    debugUtil, testPath,
+                                    result,
+                                    predMap).call();
+                            if (cResult.getReturnCode() == SMTReturnCode.INCORRECT) {
+                                return SMTReturnCode.INCORRECT;
+                            } else {
+                                return SMTReturnCode.UNKNOWN;
+                            }
+                        }
                     }
 
                     // update set of candidates

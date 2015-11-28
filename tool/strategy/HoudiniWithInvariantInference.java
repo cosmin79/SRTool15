@@ -9,9 +9,10 @@ import java.util.HashMap;
 
 public class HoudiniWithInvariantInference extends HoudiniWithLoopSummary {
 
-    public HoudiniWithInvariantInference(Program program, DebugUtil debugUtil) {
-        super(program, debugUtil);
+    public HoudiniWithInvariantInference(Program program, DebugUtil debugUtil, String testPath) {
+        super(program, debugUtil, testPath);
         this.program = (Program) new InvariantGenVisitor(new HashMap<>(), program).visit(program);
+        this.strategyName = "houdiniInvariantInference";
         debugUtil.print("Program after loop invariant generation visitor:\n" + new PrintVisitor().visit(this.program));
     }
 }

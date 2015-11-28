@@ -79,7 +79,8 @@ public class LoopAndMethodSummary implements Callable<SMTResult> {
         case UNKNOWN:
           return smtResult;
         case INCORRECT:
-          SMTResult cResult = new CRandom(programWithoutCalls, debugUtil, testPath, smtResult, predMap).call();
+          SMTResult cResult = new CRandom("loopAndMethodSummary",
+                  programWithoutCalls, debugUtil, testPath, smtResult, predMap).call();
           if (cResult.getReturnCode() == SMTReturnCode.INCORRECT) {
             return cResult;
           } else {

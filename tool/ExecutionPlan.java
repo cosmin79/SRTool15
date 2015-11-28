@@ -13,7 +13,7 @@ public class ExecutionPlan {
     private DebugUtil debugUtil;
     private final Program program;
     private final String testPath;
-    private final int TIMEOUT = 150;
+    private final int TIMEOUT = 160;
 
     public ExecutionPlan(Program program, DebugUtil debugUtil, String testPath) {
         this.program = program;
@@ -56,48 +56,27 @@ public class ExecutionPlan {
         return retCode;
     }
 
-    private boolean containsCandidatePrePost() {
-        for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
-            for (PrePostCondition prePostCondition: procedureDecl.getPrePostConditions()) {
-                if (prePostCondition instanceof CandidatePrecondition ||
-                        prePostCondition instanceof CandidatePostcondition) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     public void verifyProgram() {
-        if (!containsCandidatePrePost()) {
-            SMTResult smtResult = new LoopAndMethodSummary(program, debugUtil, testPath, new HashMap<>()).call();
-            if (smtResult.getReturnCode() == SMTReturnCode.INCORRECT) {
-                decide(SMTReturnCode.INCORRECT);
-            }
-        }
-
         ExecutorService executor = Executors.newFixedThreadPool(3);
         CompletionService<SMTReturnCode> completionService = new ExecutorCompletionService<>(executor);
 
         Future<SMTReturnCode> houdiniLoopSumarrisation =
-                completionService.submit(new HoudiniWithLoopSummary(cloneProgram(), debugUtil));
+                completionService.submit(new HoudiniWithLoopSummary(cloneProgram(), debugUtil, testPath));
         Future<SMTReturnCode> houdiniLoopBMC =
                 completionService.submit(new HoudiniWithBMC(cloneProgram(), debugUtil));
         Future<SMTReturnCode> houdiniInvariantsInference =
-                completionService.submit(new HoudiniWithInvariantInference(cloneProgram(), debugUtil));
+                completionService.submit(new HoudiniWithInvariantInference(cloneProgram(), debugUtil, testPath));
 
         Map<Future<SMTReturnCode>, Set<SMTReturnCode>> trustedReturns = new HashMap<Future<SMTReturnCode>, Set<SMTReturnCode>>() {{
-            Set<SMTReturnCode> houdiniLoopSummaryValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
-            if (program.getLoops().isEmpty()) {
-                houdiniLoopSummaryValues.add(SMTReturnCode.INCORRECT);
-            }
+            Set<SMTReturnCode> houdiniLoopSummaryValues = new HashSet<>(
+                    Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.INCORRECT));
             put(houdiniLoopSumarrisation, houdiniLoopSummaryValues);
 
             Set<SMTReturnCode> houdiniBMCValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.INCORRECT));
             put(houdiniLoopBMC, houdiniBMCValues);
 
-            Set<SMTReturnCode> houdiniInvariantInferenceValues = new HashSet<>(Arrays.asList(SMTReturnCode.CORRECT));
+            Set<SMTReturnCode> houdiniInvariantInferenceValues = new HashSet<>(
+                    Arrays.asList(SMTReturnCode.CORRECT, SMTReturnCode.INCORRECT));
             put(houdiniInvariantsInference, houdiniInvariantInferenceValues);
         }};
 

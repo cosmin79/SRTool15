@@ -2,6 +2,8 @@ package ast.visitor.impl;
 
 import ast.*;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -42,7 +44,7 @@ public class HoudiniVisitor extends DefaultVisitor {
     @Override
     public Object visit(CandidateInvariant candidateInvariant) {
         if (candidates.contains(candidateInvariant)) {
-            Invariant newInvariant = new Invariant((Expr) candidateInvariant.getCondition().accept(this));
+            Invariant newInvariant = new Invariant((Expr) candidateInvariant.getCondition().accept(this), true);
             predMap.put(newInvariant, candidateInvariant);
             return newInvariant;
         }

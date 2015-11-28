@@ -224,7 +224,7 @@ public class DefaultVisitor implements Visitor<Object> {
 
     @Override
     public Object visit(Invariant invariant) {
-        Invariant newInvariant = new Invariant((Expr) invariant.getCondition().accept(this));
+        Invariant newInvariant = new Invariant((Expr) invariant.getCondition().accept(this), invariant.isConverted());
         predMap.put(newInvariant, invariant);
 
         return newInvariant;

@@ -200,8 +200,10 @@ public class PrintCVisitor extends PrintVisitor {
         // assert invariants on entry
         for (LoopInvariant invariant: whileStmt.getLoopInvariantList()) {
             if (invariant instanceof Invariant) {
-                Expr invExpr = ((Invariant) invariant).getCondition();
-                sb.append(ident.getIndent() + String.format(ASSERT_STMT, invExpr.accept(this)));
+                if (!((Invariant) invariant).isConverted()) {
+                    Expr invExpr = ((Invariant) invariant).getCondition();
+                    sb.append(ident.getIndent() + String.format(ASSERT_STMT, invExpr.accept(this)));
+                }
             }
         }
 
@@ -213,8 +215,10 @@ public class PrintCVisitor extends PrintVisitor {
         // invariants hold at each iteration
         for (LoopInvariant invariant: whileStmt.getLoopInvariantList()) {
             if (invariant instanceof Invariant) {
-                Expr invExpr = ((Invariant) invariant).getCondition();
-                sb.append(ident.getIndent() + String.format(ASSERT_STMT, invExpr.accept(this)));
+                if (!((Invariant) invariant).isConverted()) {
+                    Expr invExpr = ((Invariant) invariant).getCondition();
+                    sb.append(ident.getIndent() + String.format(ASSERT_STMT, invExpr.accept(this)));
+                }
             }
         }
         ident.pop();

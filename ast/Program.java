@@ -22,6 +22,19 @@ public class Program extends Node {
         }
     }
 
+    public boolean containsCandidatePrePost() {
+        for (ProcedureDecl proc: procedureDecls) {
+            for (PrePostCondition prePostCondition: proc.getPrePostConditions()) {
+                if (prePostCondition instanceof CandidatePrecondition ||
+                        prePostCondition instanceof CandidatePostcondition) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public List<VarDecl> getVarDecls() {
         return varDecls;
     }
