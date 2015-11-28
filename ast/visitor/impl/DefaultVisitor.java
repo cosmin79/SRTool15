@@ -39,8 +39,9 @@ public class DefaultVisitor implements Visitor<Object> {
         }
 
         for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
-            procedures.add((ProcedureDecl) procedureDecl.accept(this));
-            methodNameToProcedure.put(procedureDecl.getMethodName(), procedureDecl);
+            ProcedureDecl newProcDecl = (ProcedureDecl) procedureDecl.accept(this);
+            procedures.add(newProcDecl);
+            methodNameToProcedure.put(procedureDecl.getMethodName(), newProcDecl);
         }
 
         // solve modSet for calls

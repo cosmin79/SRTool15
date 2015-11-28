@@ -52,9 +52,10 @@ public class MethodVerifier {
         if (queryResult.startsWith("sat")) {
             // obtain failed assertions
             List<AssertStmt> failedAssertions = parseFailedAssertions(queryResult, vcResult.getBooleanToAssert());
-            return new SMTResult(SMTReturnCode.INCORRECT,
+            return new SMTResult(
                     failedAssertions,
-                    parseVariablesValue(queryResult, vcResult.getVarToNode()));
+                    parseVariablesValue(queryResult, vcResult.getVarToNode()),
+                    procedureDecl);
         }
 
         if (!queryResult.startsWith("unsat")) {

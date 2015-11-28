@@ -2,6 +2,7 @@ package tool;
 
 import ast.AssertStmt;
 import ast.Node;
+import ast.ProcedureDecl;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -16,14 +17,20 @@ public class SMTResult {
 
     private Map<Node, Integer> varNodeToValue;
 
-    public SMTResult(SMTReturnCode returnCode, List<AssertStmt> failedAsserts, Map<Node, Integer> varNodeToValue) {
-        this.returnCode = returnCode;
+    private ProcedureDecl failedMethod;
+
+    public SMTResult(
+            List<AssertStmt> failedAsserts,
+            Map<Node, Integer> varNodeToValue,
+            ProcedureDecl failedMethod) {
+        this.returnCode = SMTReturnCode.INCORRECT;
         this.failedAsserts = failedAsserts;
         this.varNodeToValue = varNodeToValue;
+        this.failedMethod = failedMethod;
     }
 
     public SMTResult(SMTReturnCode returnCode) {
-        this(returnCode, new LinkedList<>(), new HashMap<>());
+        this.returnCode = returnCode;
     }
 
     public SMTReturnCode getReturnCode() {
@@ -36,5 +43,9 @@ public class SMTResult {
 
     public Map<Node, Integer> getVarNodeToValue() {
         return varNodeToValue;
+    }
+
+    public ProcedureDecl getFailedMethod() {
+        return failedMethod;
     }
 }

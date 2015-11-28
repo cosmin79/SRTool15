@@ -10,15 +10,15 @@ public class ToCVisitor extends DefaultVisitor {
 
     private static final String GLOBAL_TEMP = "%scopy";
 
-    private final Map<String, ProcedureDecl> methods;
-
     private List<String> globals;
 
     private Map<String, String> enclosingMethodGlobalsCopy;
 
     private ScopesHandler scopesHandler;
 
-    public ToCVisitor(Map<Node, Node> predMap, Program program) {
+    private Map<Node, Integer> varNodeToValue;
+
+    public ToCVisitor(Map<Node, Node> predMap, Program program, Map<Node, Integer> varNodeToValue) {
         super(predMap);
         scopesHandler = new ScopesHandler(new VariableIdsGenerator());
 
@@ -27,10 +27,7 @@ public class ToCVisitor extends DefaultVisitor {
             globals.add(varDecl.getVarIdentifier().getVarName());
         }
 
-        methods = new HashMap<>();
-        for (ProcedureDecl procedureDecl: program.getProcedureDecls()) {
-            methods.put(procedureDecl.getMethodName(), procedureDecl);
-        }
+        this.varNodeToValue = varNodeToValue;
     }
 
     private VarRef refForVar(String varName) {

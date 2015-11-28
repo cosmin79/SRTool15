@@ -3,27 +3,33 @@ package tool.strategy;
 import ast.Node;
 import ast.ProcedureDecl;
 import ast.Program;
-import ast.visitor.impl.*;
+import ast.visitor.impl.LoopSummarisationVisitor;
+import ast.visitor.impl.MethodSummarisationVisitor;
+import ast.visitor.impl.PrintVisitor;
+import org.omg.CORBA.UNKNOWN;
 import tool.DebugUtil;
 import tool.MethodVerifier;
 import tool.SMTResult;
 import tool.SMTReturnCode;
 
-import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
-
 import java.util.concurrent.Callable;
 
-public class LoopAndMethodSummary implements Callable<SMTReturnCode> {
+public class LoopAndMethodSummary implements Callable<SMTResult> {
 
   private Program program;
 
   private DebugUtil debugUtil;
 
-  public LoopAndMethodSummary(Program program, DebugUtil debugUtil) {
+  private Map<Node, Node> predMap;
+
+  private String testPath;
+
+  public LoopAndMethodSummary(Program program, DebugUtil debugUtil, String testPath, Map<Node, Node> predMap) {
     this.program = program;
     this.debugUtil = debugUtil;
+    this.predMap = predMap;
+    this.testPath = testPath;
   }
 
   private boolean applyMethodSummarisation(Map<Node, Node> predMap) {
@@ -38,38 +44,49 @@ public class LoopAndMethodSummary implements Callable<SMTReturnCode> {
     return Thread.currentThread().isInterrupted();
   }
 
-  private SMTReturnCode checkMethod(MethodVerifier methodVerifier, ProcedureDecl proc) {
-    SMTReturnCode retCode;
+  private SMTResult checkMethod(MethodVerifier methodVerifier, ProcedureDecl proc) {
+    SMTResult smtResult;
     try {
-      retCode = methodVerifier.verifyMethod(proc).getReturnCode();
+      smtResult = methodVerifier.verifyMethod(proc);
     } catch (Exception exception) {
-      retCode = SMTReturnCode.UNKNOWN;
+      smtResult = new SMTResult(SMTReturnCode.UNKNOWN);
     }
     if (Thread.currentThread().isInterrupted()) {
-      retCode = SMTReturnCode.UNKNOWN;
+      smtResult = new SMTResult(SMTReturnCode.UNKNOWN);
     }
-    return retCode;
+    return smtResult;
   }
 
   // This strategy uses loop and method summarisation.
   // It attempts to prove the program is correct
   // It may give false negatives. No false positives though!
   @Override
-  public SMTReturnCode call() {
-    Map<Node, Node> predMap = new HashMap<>();
+  public SMTResult call() {
     if (applyMethodSummarisation(predMap)) {
-      return SMTReturnCode.UNKNOWN;
+      return new SMTResult(SMTReturnCode.UNKNOWN);
     }
+    Program programWithoutCalls = program;
+
     if (applyLoopSummarisation(predMap)) {
-      return SMTReturnCode.UNKNOWN;
+      return new SMTResult(SMTReturnCode.UNKNOWN);
     }
     MethodVerifier methodVerifier = new MethodVerifier(predMap, program, debugUtil);
-    for(ProcedureDecl proc: program.getProcedureDecls()) {
-      SMTReturnCode retCode = checkMethod(methodVerifier, proc);
-      if (retCode != SMTReturnCode.CORRECT) {
-        return retCode;
+    for (ProcedureDecl proc : program.getProcedureDecls()) {
+      debugUtil.print("Analyzing method: " + proc.getMethodName());
+      SMTResult smtResult = checkMethod(methodVerifier, proc);
+
+      switch (smtResult.getReturnCode()) {
+        case UNKNOWN:
+          return smtResult;
+        case INCORRECT:
+          SMTResult cResult = new CRandom(programWithoutCalls, debugUtil, testPath, smtResult, predMap).call();
+          if (cResult.getReturnCode() == SMTReturnCode.INCORRECT) {
+            return cResult;
+          } else {
+            return new SMTResult(SMTReturnCode.UNKNOWN);
+          }
       }
     }
-    return SMTReturnCode.CORRECT;
+    return new SMTResult(SMTReturnCode.CORRECT);
   }
 }

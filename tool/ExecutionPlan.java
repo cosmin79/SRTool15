@@ -71,11 +71,13 @@ public class ExecutionPlan {
 
     public void verifyProgram() {
         if (!containsCandidatePrePost()) {
-            SMTReturnCode returnCode = new CRandom(program, debugUtil, testPath).call();
-            if (returnCode == SMTReturnCode.INCORRECT) {
+            SMTResult smtResult = new LoopAndMethodSummary(program, debugUtil, testPath, new HashMap<>()).call();
+            if (smtResult.getReturnCode() == SMTReturnCode.INCORRECT) {
                 decide(SMTReturnCode.INCORRECT);
             }
         }
+
+        System.out.println("Got here\n");
 
         ExecutorService executor = Executors.newFixedThreadPool(3);
         CompletionService<SMTReturnCode> completionService = new ExecutorCompletionService<>(executor);

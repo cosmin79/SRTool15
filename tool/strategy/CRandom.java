@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
-public class CRandom implements Callable<SMTReturnCode> {
+public class CRandom implements Callable<SMTResult> {
 
     private static final int COMPILE_TIMEOUT = 2;
 
@@ -47,7 +47,7 @@ public class CRandom implements Callable<SMTReturnCode> {
             "return b >= 32 ? 0 : (a << b);}\n";
 
     private static final String RIGHT_SHIFT_FUNC = "inline int myrightshift(int a, int b) {" +
-            "b = b > 32 ? 32 : b; return a >> b;}\n";
+            "b = b >= 32 ? 31 : b; return a >> b;}\n";
 
     private static final String METHOD = "foo%s";
 
@@ -57,27 +57,22 @@ public class CRandom implements Callable<SMTReturnCode> {
 
     private final String testPath;
 
-    public CRandom(Program program, DebugUtil debugUtil, String testPath) {
+    private SMTResult smtResult;
+
+    private Map<Node, Node> parentStrategyPredMap;
+
+    public CRandom(Program program, DebugUtil debugUtil, String testPath, SMTResult smtResult, Map<Node, Node> predMap) {
         this.program = program;
         this.debugUtil = debugUtil;
         this.testPath = testPath;
+        this.smtResult = smtResult;
+        parentStrategyPredMap = predMap;
     }
 
-    private boolean applyMethodSummarisation(Map<Node, Node> predMap) {
-        program = (Program) new MethodSummarisationVisitor(predMap, program).visit(program);
-        debugUtil.print("Code after method summarisation is applied:\n" + new PrintVisitor().visit(program));
-        return Thread.currentThread().isInterrupted();
-    }
-
-    private boolean applyNonCFeaturesRemoval(Map<Node, Node> predMap) {
-        program = (Program) new ToCVisitor(predMap, program).visit(program);
+    private Boolean applyNonCFeaturesRemoval() {
+        program = (Program) new ToCVisitor(new HashMap<>(), program, smtResult.getVarNodeToValue()).visit(program);
         debugUtil.print("All non C features removed:\n" + new PrintVisitor().visit(program));
-        return Thread.currentThread().isInterrupted();
-    }
 
-    private boolean applyLoopSummarisation(Map<Node, Node> predMap) {
-        program = (Program) new LoopSummarisationVisitor(predMap).visit(program);
-        debugUtil.print("Code after loop summarisation is applied:\n" + new PrintVisitor().visit(program));
         return Thread.currentThread().isInterrupted();
     }
 
@@ -126,51 +121,27 @@ public class CRandom implements Callable<SMTReturnCode> {
 
     // This strategy transforms the initial program into C++ and then attempts to find failing tests
     @Override
-    public SMTReturnCode call() {
-        Map<Node, Node> predMap = new HashMap<>();
-        if (applyMethodSummarisation(predMap)) {
-            return SMTReturnCode.UNKNOWN;
-        }
-        if (applyNonCFeaturesRemoval(predMap)) {
-            return SMTReturnCode.UNKNOWN;
-        }
-
-        Program targetProgram = program;
-
-        // applying loop summary in an attempt to find bad inputs
-        if (applyLoopSummarisation(predMap)) {
-            return SMTReturnCode.UNKNOWN;
-        }
-
-        MethodVerifier methodVerifier = new MethodVerifier(predMap, program, debugUtil);
-        for(ProcedureDecl proc: program.getProcedureDecls()) {
-            SMTResult smtResult;
-            try {
-                smtResult = methodVerifier.verifyMethod(proc);
-            } catch (Exception e) {
-                return SMTReturnCode.UNKNOWN;
-            }
-
-            if (smtResult.getReturnCode() == SMTReturnCode.INCORRECT) {
-                String code = INCLUDE_ASSERT_LIBRARY +
-                        LAST_32_BITS +
-                        DIV_FUNC +
-                        MOD_FUNC +
-                        ADD_FUNC +
-                        SUB_FUNC +
-                        MUL_FUNC +
-                        LEFT_SHIFT_FUNC +
-                        RIGHT_SHIFT_FUNC +
-                        new PrintCVisitor(
-                                proc.getMethodName(),
-                                SmtUtil.getNodeValues(predMap, smtResult)).visit(targetProgram);
-                SMTReturnCode returnCode = verifyMethod(proc.getMethodName(), code);
-                if (returnCode == SMTReturnCode.INCORRECT) {
-                    return returnCode;
-                }
+    public SMTResult call() {
+        if (smtResult.getReturnCode() == SMTReturnCode.INCORRECT) {
+            String failedMethodName = smtResult.getFailedMethod().getMethodName();
+            String code = INCLUDE_ASSERT_LIBRARY +
+                    LAST_32_BITS +
+                    DIV_FUNC +
+                    MOD_FUNC +
+                    ADD_FUNC +
+                    SUB_FUNC +
+                    MUL_FUNC +
+                    LEFT_SHIFT_FUNC +
+                    RIGHT_SHIFT_FUNC +
+                    new PrintCVisitor(program,
+                            failedMethodName,
+                            SmtUtil.getNodeValues(parentStrategyPredMap, smtResult)).visit(program);
+            SMTReturnCode returnCode = verifyMethod(failedMethodName, code);
+            if (returnCode == SMTReturnCode.INCORRECT) {
+                return new SMTResult(returnCode);
             }
         }
 
-        return SMTReturnCode.CORRECT;
+        return new SMTResult(SMTReturnCode.UNKNOWN);
     }
 }
