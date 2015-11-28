@@ -77,8 +77,6 @@ public class ExecutionPlan {
             }
         }
 
-        System.out.println("Got here\n");
-
         ExecutorService executor = Executors.newFixedThreadPool(3);
         CompletionService<SMTReturnCode> completionService = new ExecutorCompletionService<>(executor);
 

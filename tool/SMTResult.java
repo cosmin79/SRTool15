@@ -31,6 +31,8 @@ public class SMTResult {
 
     public SMTResult(SMTReturnCode returnCode) {
         this.returnCode = returnCode;
+        this.failedAsserts = new LinkedList<>();
+        this.varNodeToValue = new HashMap<>();
     }
 
     public SMTReturnCode getReturnCode() {
