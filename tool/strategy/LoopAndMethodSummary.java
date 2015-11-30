@@ -6,6 +6,7 @@ import ast.Program;
 import ast.visitor.impl.LoopSummarisationVisitor;
 import ast.visitor.impl.MethodSummarisationVisitor;
 import ast.visitor.impl.PrintVisitor;
+import ast.visitor.impl.ShadowVisitor;
 import org.omg.CORBA.UNKNOWN;
 import tool.DebugUtil;
 import tool.MethodVerifier;
@@ -65,6 +66,7 @@ public class LoopAndMethodSummary implements Callable<SMTResult> {
     if (applyMethodSummarisation(predMap)) {
       return new SMTResult(SMTReturnCode.UNKNOWN);
     }
+    program = (Program) new ShadowVisitor(predMap, program).visit(program);
     Program programWithoutCalls = program;
 
     if (applyLoopSummarisation(predMap)) {

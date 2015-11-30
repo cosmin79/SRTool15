@@ -33,7 +33,7 @@ def runTest(test):
 
 def runTests(expectedOutput, tests, outputFile):
   results = []
-  pool = Pool(cpu_count())
+  pool = Pool(4)
   for test in tests:
     print test
     results.append(pool.apply_async(runTest, args=(test,)))

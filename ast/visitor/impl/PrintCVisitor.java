@@ -109,7 +109,6 @@ public class PrintCVisitor extends PrintVisitor {
         }
 
         // add formal parameters
-        sb.append(ident.getIndent() + RAND_STMT);
         for (FormalParam formalParam: procedureDecl.getParamList()) {
             String varName = formalParam.getVarIdentifier().getVarName();
             sb.append(ident.getIndent() + String.format(VAR_DECL, varName, nodeValues.get(formalParam)));

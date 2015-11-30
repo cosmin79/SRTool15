@@ -145,14 +145,16 @@ public class HoudiniWithBMC implements Callable<SMTReturnCode> {
     // This strategy uses sound BMC for loops. It attempts to prove the program is correct
     @Override
     public SMTReturnCode call() {
-        Map<Node, Node> predMap = new HashMap<>();
         Set<Node> criticalFailures = program.getPotentiallyCriticalFailures();
         if (addCandidatePrePostConditions()) {
             return SMTReturnCode.UNKNOWN;
         }
 
         Boolean updateHoudini = true;
+        Map<Node, Node> predMap = new HashMap<>();
         while (updateHoudini) {
+            predMap.clear();
+
             updateHoudini = false;
             Program intermediateProgram =
                     (Program) new HoudiniVisitor(predMap, consideredCandidates).
@@ -165,6 +167,7 @@ public class HoudiniWithBMC implements Callable<SMTReturnCode> {
                 return SMTReturnCode.UNKNOWN;
             }
             intermediateProgram = methodSummaryResult.getProgram();
+            intermediateProgram = (Program) new ShadowVisitor(predMap, intermediateProgram).visit(intermediateProgram);
 
             Queue<ProcedureDecl> toRecompute = new LinkedList<>();
             Map<WhileStmt, Integer> currUnwind = new HashMap<>();

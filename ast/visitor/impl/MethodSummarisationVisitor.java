@@ -8,6 +8,8 @@ public class MethodSummarisationVisitor extends DefaultVisitor {
 
     private static final String TEMP_RESULT = "%s_ret";
 
+    private static final String TEMP_GLOBAL = "%s_temp";
+
     private final Program program;
 
     private final Map<String, ProcedureDecl> methods;
@@ -15,6 +17,8 @@ public class MethodSummarisationVisitor extends DefaultVisitor {
     private Set<String> globalVariables;
 
     private Map<String, Expr> enclosingCallParameters;
+
+    private Map<String, String> oldGlobalsEnclosingCall;
 
     private String enclosingCallResult;
 
@@ -44,6 +48,9 @@ public class MethodSummarisationVisitor extends DefaultVisitor {
         ProcedureDecl calleeMethod = methods.get(callStmt.getMethodName());
         String lhsVar = callStmt.getLhsVar().getVarIdentifier().getVarName();
 
+        isInsideCallStmt = true;
+        List<Stmt> stmtList = new LinkedList<>();
+
         List<Expr> parameters = new LinkedList<>();
         for (Expr expr: callStmt.getParametersList()) {
             parameters.add((Expr) expr.accept(this));
@@ -56,8 +63,15 @@ public class MethodSummarisationVisitor extends DefaultVisitor {
             enclosingCallParameters.put(formalParam.getVarIdentifier().getVarName(), paramsIterator.next());
         }
 
-        isInsideCallStmt = true;
-        List<Stmt> stmtList = new LinkedList<>();
+        // set up copies after globals
+        oldGlobalsEnclosingCall = new HashMap<>();
+        for (String globalVar: globalVariables) {
+            String globalVarTemp = String.format(TEMP_GLOBAL, globalVar);
+            stmtList.add(new VarDecl(new VarIdentifier(globalVarTemp)));
+            stmtList.add(new AssignStmt(refForName(globalVarTemp), new VarRefExpr(refForName(globalVar))));
+            oldGlobalsEnclosingCall.put(globalVar, globalVarTemp);
+        }
+
         // transform preconditions of callee into asserts
         for (PrePostCondition prePostCondition: calleeMethod.getPrePostConditions()) {
             if (prePostCondition instanceof Precondition) {
@@ -68,7 +82,7 @@ public class MethodSummarisationVisitor extends DefaultVisitor {
             }
         }
 
-        // havoc modified set ; should only be applicable for global variables and provided call parameters
+        // havoc modified set ; should only be applicable for global variables
         for (String modVar: calleeMethod.getModSet()) {
             if (globalVariables.contains(modVar)) {
                 stmtList.add(new HavocStmt(refForName(modVar)));
@@ -113,7 +127,8 @@ public class MethodSummarisationVisitor extends DefaultVisitor {
     @Override
     public Object visit(OldExpr oldExpr) {
         if (isInsideCallStmt) {
-            return new VarRefExpr(refForName(oldExpr.getVar().getVarIdentifier().getVarName()));
+            String varName = oldExpr.getVar().getVarIdentifier().getVarName();
+            return new VarRefExpr(refForName(oldGlobalsEnclosingCall.get(varName)));
         }
         return super.visit(oldExpr);
     }

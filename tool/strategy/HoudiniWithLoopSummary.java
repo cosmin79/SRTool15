@@ -69,7 +69,6 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
 
     @Override
     public SMTReturnCode call() {
-        Map<Node, Node> predMap = new HashMap<>();
         Set<Node> criticalFailures = program.getPotentiallyCriticalFailures();
         if (addCandidatePrePostConditions()) {
             return SMTReturnCode.UNKNOWN;
@@ -80,7 +79,9 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
 
         debugUtil.print("Starting analyzing with HoudiniWithLoopSummary\n");
         Boolean updateHoudini = true;
+        Map<Node, Node> predMap = new HashMap<>();
         while (updateHoudini) {
+            predMap.clear();
             Program intermediateProgram =
                     (Program) new HoudiniVisitor(predMap, consideredCandidates).
                             visit(program);
@@ -92,6 +93,7 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
                             visit(intermediateProgram);
             debugUtil.print("Code after method summarisation is applied:\n" +
                     new PrintVisitor().visit(intermediateProgram));
+            intermediateProgram = (Program) new ShadowVisitor(predMap, intermediateProgram).visit(intermediateProgram);
 
             Program programWithoutCalls = intermediateProgram;
 
