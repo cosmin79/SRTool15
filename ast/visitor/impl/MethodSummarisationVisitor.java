@@ -47,8 +47,6 @@ public class MethodSummarisationVisitor extends DefaultVisitor {
     public Object visit(CallStmt callStmt) {
         ProcedureDecl calleeMethod = methods.get(callStmt.getMethodName());
         String lhsVar = callStmt.getLhsVar().getVarIdentifier().getVarName();
-
-        isInsideCallStmt = true;
         List<Stmt> stmtList = new LinkedList<>();
 
         List<Expr> parameters = new LinkedList<>();
@@ -71,6 +69,8 @@ public class MethodSummarisationVisitor extends DefaultVisitor {
             stmtList.add(new AssignStmt(refForName(globalVarTemp), new VarRefExpr(refForName(globalVar))));
             oldGlobalsEnclosingCall.put(globalVar, globalVarTemp);
         }
+
+        isInsideCallStmt = true;
 
         // transform preconditions of callee into asserts
         for (PrePostCondition prePostCondition: calleeMethod.getPrePostConditions()) {

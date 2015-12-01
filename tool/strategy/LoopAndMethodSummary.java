@@ -66,7 +66,6 @@ public class LoopAndMethodSummary implements Callable<SMTResult> {
     if (applyMethodSummarisation(predMap)) {
       return new SMTResult(SMTReturnCode.UNKNOWN);
     }
-    program = (Program) new ShadowVisitor(predMap, program).visit(program);
     Program programWithoutCalls = program;
 
     if (applyLoopSummarisation(predMap)) {

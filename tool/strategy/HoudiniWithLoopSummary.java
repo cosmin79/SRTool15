@@ -93,7 +93,6 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
                             visit(intermediateProgram);
             debugUtil.print("Code after method summarisation is applied:\n" +
                     new PrintVisitor().visit(intermediateProgram));
-            intermediateProgram = (Program) new ShadowVisitor(predMap, intermediateProgram).visit(intermediateProgram);
 
             Program programWithoutCalls = intermediateProgram;
 

@@ -154,7 +154,6 @@ public class HoudiniWithBMC implements Callable<SMTReturnCode> {
         Map<Node, Node> predMap = new HashMap<>();
         while (updateHoudini) {
             predMap.clear();
-
             updateHoudini = false;
             Program intermediateProgram =
                     (Program) new HoudiniVisitor(predMap, consideredCandidates).
@@ -167,7 +166,6 @@ public class HoudiniWithBMC implements Callable<SMTReturnCode> {
                 return SMTReturnCode.UNKNOWN;
             }
             intermediateProgram = methodSummaryResult.getProgram();
-            intermediateProgram = (Program) new ShadowVisitor(predMap, intermediateProgram).visit(intermediateProgram);
 
             Queue<ProcedureDecl> toRecompute = new LinkedList<>();
             Map<WhileStmt, Integer> currUnwind = new HashMap<>();
