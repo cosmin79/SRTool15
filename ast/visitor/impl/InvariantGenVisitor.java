@@ -26,9 +26,39 @@ public class InvariantGenVisitor extends DefaultVisitor {
 
     private List<Expr> interestingAssertsCurrMethod;
 
-    private Map<String, List<Expr>> interestingVarChanges;
+    private Map<String, Set<Expr>> interestingVarChanges;
+
+    private Map<String, Set<Expr>> interestingConstantsForVars;
 
     private ScopesHandler scopesHandler;
+
+    private class VariablePair {
+
+        private String firstVariable;
+
+        private String secondVariable;
+
+        private VariablePair(String firstVariable, String secondVariable) {
+            this.firstVariable = firstVariable;
+            this.secondVariable = secondVariable;
+        }
+
+        @Override
+        public int hashCode() {
+            return firstVariable.hashCode() ^ secondVariable.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof VariablePair)) {
+                return false;
+            }
+
+            VariablePair otherVariablePairs = (VariablePair)other;
+            return otherVariablePairs.firstVariable.equals(firstVariable) &&
+                    otherVariablePairs.secondVariable.equals(secondVariable);
+        }
+    }
 
     public InvariantGenVisitor(Map<Node, Node> predMap, Program program) {
         super(predMap);
@@ -88,13 +118,20 @@ public class InvariantGenVisitor extends DefaultVisitor {
                 generateVarRef(AUX_ITER),
                 new BinaryExpr("+", generateVarExpr(AUX_ITER), new NumberExpr(1L))));
 
+        Set<VariablePair> pairsConstrains = new HashSet<>();
         // add a candidate invariant for this var and any other defined var
-        for (String operator: operators) {
-            for (String lhsVar : modifiedVariables) {
-                for (String usedVar : usedVariables) {
-                    if (!lhsVar.equals(usedVar)) {
-                        loopInvariants.add(new CandidateInvariant(
-                                new BinaryExpr(operator, generateVarExpr(lhsVar), generateVarExpr(usedVar))));
+        for (String lhsVar : modifiedVariables) {
+            for (String usedVar : usedVariables) {
+                VariablePair currTuple = new VariablePair(lhsVar, usedVar);
+                if (!pairsConstrains.contains(currTuple)) {
+                    pairsConstrains.add(currTuple);
+                    // add reverse pair as well to not take it into account later
+                    pairsConstrains.add(new VariablePair(usedVar, lhsVar));
+                    for (String operator: operators) {
+                        if (!lhsVar.equals(usedVar)) {
+                            loopInvariants.add(new CandidateInvariant(
+                                    new BinaryExpr(operator, generateVarExpr(lhsVar), generateVarExpr(usedVar))));
+                        }
                     }
                 }
             }
@@ -102,11 +139,13 @@ public class InvariantGenVisitor extends DefaultVisitor {
 
         // add a candidate invariant: compare modified var with interesting constants
         for (String operator: operators) {
-            for (String lhsVar: modifiedVariables) {
-                for (Expr rhsExpr: scopesHandler.getUsedExprs()) {
-                    if (isExprWellDefined(rhsExpr, usedVariables)) {
-                        loopInvariants.add(new CandidateInvariant(
-                                new BinaryExpr(operator, generateVarExpr(lhsVar), rhsExpr)));
+            for (String lhsVar : modifiedVariables) {
+                if (interestingConstantsForVars.containsKey(lhsVar)) {
+                    for (Expr rhsExpr : interestingConstantsForVars.get(lhsVar)) {
+                        if (isExprWellDefined(rhsExpr, usedVariables)) {
+                            loopInvariants.add(new CandidateInvariant(
+                                    new BinaryExpr(operator, generateVarExpr(lhsVar), rhsExpr)));
+                        }
                     }
                 }
             }
@@ -161,15 +200,17 @@ public class InvariantGenVisitor extends DefaultVisitor {
         AssignStmt newAssignStmt = new AssignStmt(lhsVar, rhsExpr);
         newAssignStmt.addModSet(varName);
 
-        List<Expr> interestingExprsCurrVar = interestingVarChanges.get(varName);
+        Set<Expr> interestingExprsCurrVar = interestingVarChanges.get(varName);
         if (interestingExprsCurrVar == null) {
-            interestingExprsCurrVar = new LinkedList<>();
+            interestingExprsCurrVar = new HashSet<>();
         }
-        // add candidate var changes
+
         for (Expr underlyingExpr: rhsExpr.getExprs()) {
             if (!underlyingExpr.getRefVars().contains(varName) && underlyingExpr.isCandidateHoudini()) {
-                interestingExprsCurrVar.add(underlyingExpr);
-                interestingExprsCurrVar.add(new UnaryExpr("-", underlyingExpr));
+                if (!underlyingExpr.equals(new NumberExpr(Long.valueOf(0)))) {
+                    interestingExprsCurrVar.add(underlyingExpr);
+                    interestingExprsCurrVar.add(new UnaryExpr("-", underlyingExpr));
+                }
             }
         }
         interestingVarChanges.put(varName, interestingExprsCurrVar);
@@ -193,6 +234,8 @@ public class InvariantGenVisitor extends DefaultVisitor {
         }
         // reset tracking of var changes
         interestingVarChanges = new HashMap<>();
+        // reset tracking of interesting var constants
+        interestingConstantsForVars = new HashMap<>();
 
         Object result = super.visit(procedureDecl);
         scopesHandler.popStack();
@@ -224,16 +267,23 @@ public class InvariantGenVisitor extends DefaultVisitor {
     }
 
     private void addExpr(Expr expr) {
-        if (isInsideLoopCond) {
-            if (expr.isCandidateHoudini()) {
-                // especially useful for bounds checking...
-                scopesHandler.addExpr(new BinaryExpr("+", expr, ONE));
-                scopesHandler.addExpr(new BinaryExpr("-", expr, ONE));
+        for (String refVar: expr.getRefVars()) {
+            Set<Expr> interestingConstantsCurrVar = interestingConstantsForVars.get(refVar);
+            if (interestingConstantsCurrVar == null) {
+                interestingConstantsCurrVar = new HashSet<>();
             }
-        } else {
-            if (expr.getRefVars().isEmpty()) {
-                scopesHandler.addExpr(expr);
+            for (Expr underlyingExpr: expr.getExprs()) {
+                if (!underlyingExpr.getRefVars().contains(refVar) && underlyingExpr.isCandidateHoudini()) {
+                    if (isInsideLoopCond) {
+                        interestingConstantsCurrVar.add(expr);
+                        interestingConstantsCurrVar.add(new BinaryExpr("+", expr, ONE));
+                        interestingConstantsCurrVar.add(new BinaryExpr("-", expr, ONE));
+                    } else if (expr.getRefVars().isEmpty()) {
+                        scopesHandler.addExpr(expr);
+                    }
+                }
             }
+            interestingConstantsForVars.put(refVar, interestingConstantsCurrVar);
         }
     }
 
