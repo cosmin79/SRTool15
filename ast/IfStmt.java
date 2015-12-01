@@ -22,6 +22,8 @@ public class IfStmt extends Stmt {
         addLoops(elseBlock);
         addCalls(thenBlock);
         addCalls(elseBlock);
+        addAssumes(thenBlock);
+        addAssumes(elseBlock);
     }
 
     public Expr getCondition() {

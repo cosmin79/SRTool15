@@ -24,6 +24,7 @@ public class WhileStmt extends Stmt {
         addLoop(this);
         addLoops(body);
         addCalls(body);
+        addAssumes(body);
     }
 
     public Expr getCondition() {

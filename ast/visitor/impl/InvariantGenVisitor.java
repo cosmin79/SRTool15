@@ -8,6 +8,10 @@ import java.util.*;
 
 public class InvariantGenVisitor extends DefaultVisitor {
 
+    private static final String GLOBAL_COPY = "%s_copy";
+
+    private static final String AUX_ITER = "iter";
+
     // those are operators that we're going to use
     private final List<String> operators = Arrays.asList("<", "<=", "==", "!=", ">=", ">");
 
@@ -20,6 +24,10 @@ public class InvariantGenVisitor extends DefaultVisitor {
     private final List<Expr> interestingConstants = Arrays.asList(
             MINUS_ONE, new NumberExpr(Long.valueOf(0)), ONE);
 
+    private List<Expr> interestingAssertsCurrMethod;
+
+    private Map<String, List<Expr>> interestingVarChanges;
+
     private ScopesHandler scopesHandler;
 
     public InvariantGenVisitor(Map<Node, Node> predMap, Program program) {
@@ -31,16 +39,22 @@ public class InvariantGenVisitor extends DefaultVisitor {
         isInsideLoopCond = false;
     }
 
+    private VarRef generateVarRef(String varName) {
+        return new VarRef(new VarIdentifier(varName));
+    }
+
     private VarRefExpr generateVarExpr(String varName) {
-        return new VarRefExpr(new VarRef(new VarIdentifier(varName)));
+        return new VarRefExpr(generateVarRef(varName));
     }
 
     @Override
     public Object visit(WhileStmt whileStmt) {
+        List<Stmt> newStmts = new LinkedList<>();
+        List<LoopInvariant> loopInvariants = new LinkedList<>();
+
         isInsideLoopCond = true;
         Expr condition = (Expr) whileStmt.getCondition().accept(this);
         isInsideLoopCond = false;
-        List<LoopInvariant> loopInvariants = new LinkedList<>();
         BlockStmt body = (BlockStmt) whileStmt.getBody().accept(this);
 
         for (LoopInvariant invariant: whileStmt.getLoopInvariantList()) {
@@ -57,6 +71,23 @@ public class InvariantGenVisitor extends DefaultVisitor {
             }
         }
 
+        // add copies after modified variables
+        for (String modVar: modifiedVariables) {
+            String globalCopy = String.format(GLOBAL_COPY, modVar);
+            newStmts.add(new VarDecl(new VarIdentifier(globalCopy)));
+            newStmts.add(new AssignStmt(generateVarRef(globalCopy), generateVarExpr(modVar)));
+        }
+        // add an auxiliary iterator variable
+        newStmts.add(new VarDecl(new VarIdentifier(AUX_ITER)));
+        newStmts.add(new AssignStmt(generateVarRef(AUX_ITER), new NumberExpr(0L)));
+
+        // create new while body
+        List<Stmt> whileBodyStmts = new LinkedList<>();
+        whileBodyStmts.add(body);
+        whileBodyStmts.add(new AssignStmt(
+                generateVarRef(AUX_ITER),
+                new BinaryExpr("+", generateVarExpr(AUX_ITER), new NumberExpr(1L))));
+
         // add a candidate invariant for this var and any other defined var
         for (String operator: operators) {
             for (String lhsVar : modifiedVariables) {
@@ -69,18 +100,48 @@ public class InvariantGenVisitor extends DefaultVisitor {
             }
         }
 
-        // add a candidate number invariant for every modified variable
+        // add a candidate invariant: compare modified var with interesting constants
         for (String operator: operators) {
             for (String lhsVar: modifiedVariables) {
-                for (Expr rhsExpr: usefulExprsSoFar()) {
-                    loopInvariants.add(new CandidateInvariant(
-                            new BinaryExpr(operator, generateVarExpr(lhsVar), rhsExpr)));
+                for (Expr rhsExpr: scopesHandler.getUsedExprs()) {
+                    if (isExprWellDefined(rhsExpr, usedVariables)) {
+                        loopInvariants.add(new CandidateInvariant(
+                                new BinaryExpr(operator, generateVarExpr(lhsVar), rhsExpr)));
+                    }
                 }
             }
         }
 
+        // add candidate invariants for all interesting boolean conditions (assumes and asserts)
+        for (Expr assumeExpr: interestingAssertsCurrMethod) {
+            if (isExprWellDefined(assumeExpr, usedVariables)) {
+                loopInvariants.add(new CandidateInvariant(assumeExpr));
+            }
+        }
 
-        return new WhileStmt(condition, loopInvariants, body);
+        // add candidate invariants for all interesting modifed var changes
+        // i.e. x = copy_x + iter * change_expr e.g. x = copy_x + iter * (-2)
+        for (String modVar: modifiedVariables) {
+            if (interestingVarChanges.containsKey(modVar)) {
+                for (Expr loopChange: interestingVarChanges.get(modVar)) {
+                    if (isExprWellDefined(loopChange, usedVariables)) {
+                        loopInvariants.add(new CandidateInvariant(
+                                new BinaryExpr("==",
+                                        generateVarExpr(modVar),
+                                        new BinaryExpr("+",
+                                                generateVarExpr(String.format(GLOBAL_COPY, modVar)),
+                                                        new BinaryExpr("*",
+                                                                generateVarExpr(AUX_ITER),
+                                                                loopChange)))));
+                    }
+                }
+            }
+        }
+
+        // create the while statement with the right body
+        newStmts.add(new WhileStmt(condition, loopInvariants, new BlockStmt(whileBodyStmts)));
+
+        return new BlockStmt(newStmts);
     }
 
     private boolean isExprWellDefined(Expr expr, Set<String> existingVars) {
@@ -92,25 +153,47 @@ public class InvariantGenVisitor extends DefaultVisitor {
         return true;
     }
 
-    private List<Expr> usefulExprsSoFar() {
-        Set<String> usedVariables = scopesHandler.getDefinedVars();
+    @Override
+    public Object visit(AssignStmt assignStmt) {
+        String varName = assignStmt.getLhsVar().getVarIdentifier().getVarName();
+        Expr rhsExpr = (Expr) assignStmt.getRhsExpr().accept(this);
+        VarRef lhsVar = (VarRef) assignStmt.getLhsVar().accept(this);
+        AssignStmt newAssignStmt = new AssignStmt(lhsVar, rhsExpr);
+        newAssignStmt.addModSet(varName);
 
-        Set<Expr> candidateExprs = scopesHandler.getUsedExprs();
-        // filter out expressions that reference non defined variables
-        List<Expr> result = new LinkedList<>();
-        for (Expr candidateExpr: candidateExprs) {
-            if (candidateExpr.getRefVars().isEmpty()) {
-                result.add(candidateExpr);
+        List<Expr> interestingExprsCurrVar = interestingVarChanges.get(varName);
+        if (interestingExprsCurrVar == null) {
+            interestingExprsCurrVar = new LinkedList<>();
+        }
+        // add candidate var changes
+        for (Expr underlyingExpr: rhsExpr.getExprs()) {
+            if (!underlyingExpr.getRefVars().contains(varName) && underlyingExpr.isCandidateHoudini()) {
+                interestingExprsCurrVar.add(underlyingExpr);
+                interestingExprsCurrVar.add(new UnaryExpr("-", underlyingExpr));
             }
         }
-        candidateExprs.addAll(interestingConstants);
+        interestingVarChanges.put(varName, interestingExprsCurrVar);
 
-        return result;
+        return newAssignStmt;
     }
 
     @Override
     public Object visit(ProcedureDecl procedureDecl) {
         scopesHandler.pushStack();
+        // record existing assumes
+        interestingAssertsCurrMethod = new LinkedList<>();
+        for (AssumeStmt assumeStmt: procedureDecl.getAssumeStmts()) {
+            interestingAssertsCurrMethod.add(assumeStmt.getCondition());
+        }
+        // record existing asserts
+        for (Node criticalNode: procedureDecl.getPotentiallyCriticalFailures()) {
+            if (criticalNode instanceof AssertStmt) {
+                interestingAssertsCurrMethod.add(((AssertStmt) criticalNode).getCondition());
+            }
+        }
+        // reset tracking of var changes
+        interestingVarChanges = new HashMap<>();
+
         Object result = super.visit(procedureDecl);
         scopesHandler.popStack();
 
@@ -141,11 +224,16 @@ public class InvariantGenVisitor extends DefaultVisitor {
     }
 
     private void addExpr(Expr expr) {
-        scopesHandler.addExpr(expr);
         if (isInsideLoopCond) {
-            // especially useful for bounds checking...
-            scopesHandler.addExpr(new BinaryExpr("+", expr, ONE));
-            scopesHandler.addExpr(new BinaryExpr("-", expr, ONE));
+            if (expr.isCandidateHoudini()) {
+                // especially useful for bounds checking...
+                scopesHandler.addExpr(new BinaryExpr("+", expr, ONE));
+                scopesHandler.addExpr(new BinaryExpr("-", expr, ONE));
+            }
+        } else {
+            if (expr.getRefVars().isEmpty()) {
+                scopesHandler.addExpr(expr);
+            }
         }
     }
 

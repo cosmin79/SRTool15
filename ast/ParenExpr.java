@@ -2,6 +2,8 @@ package ast;
 
 import ast.visitor.Visitor;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 
 public class ParenExpr extends AtomExpr {
@@ -30,5 +32,10 @@ public class ParenExpr extends AtomExpr {
     @Override
     public Boolean isCandidateHoudini() {
         return false;
+    }
+
+    @Override
+    public List<Expr> getExprs() {
+        return expr.getExprs();
     }
 }

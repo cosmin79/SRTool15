@@ -15,11 +15,14 @@ public abstract class Node implements Visitable {
 
     private Set<CallStmt> callStms;
 
+    private Set<AssumeStmt> assumeStmts;
+
     public Node() {
         this.modSet = new HashSet<>();
         this.potentialFailures = new HashSet<>();
         this.loops = new HashSet<>();
         this.callStms = new HashSet<>();
+        this.assumeStmts = new HashSet<>();
     }
 
     public Set<String> getModSet() {
@@ -36,6 +39,10 @@ public abstract class Node implements Visitable {
 
     public Set<CallStmt> getCallStmts() {
         return callStms;
+    }
+
+    public Set<AssumeStmt> getAssumeStmts() {
+        return assumeStmts;
     }
 
     public Set<Node> getPotentiallyCriticalFailures() {
@@ -80,5 +87,13 @@ public abstract class Node implements Visitable {
 
     public void addCalls(Node other) {
         callStms.addAll(other.getCallStmts());
+    }
+
+    public void addAssume(AssumeStmt assumeStmt) {
+        assumeStmts.add(assumeStmt);
+    }
+
+    public void addAssumes(Node other) {
+        assumeStmts.addAll(other.getAssumeStmts());
     }
 }

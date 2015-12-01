@@ -19,6 +19,7 @@ public class Program extends Node {
             addPotentialFailures(procedureDecl);
             addLoops(procedureDecl);
             addCalls(procedureDecl);
+            addAssumes(procedureDecl);
         }
     }
 

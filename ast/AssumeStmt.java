@@ -11,6 +11,7 @@ public class AssumeStmt extends Stmt {
 
     public AssumeStmt(Expr condition) {
         this.condition = condition;
+        addAssume(this);
     }
 
     public Expr getCondition() {

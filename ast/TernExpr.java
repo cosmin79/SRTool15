@@ -3,6 +3,8 @@ package ast;
 import ast.visitor.Visitor;
 
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 
 public class TernExpr extends Expr {
@@ -49,5 +51,16 @@ public class TernExpr extends Expr {
     @Override
     public Boolean isCandidateHoudini() {
         return false;
+    }
+
+    @Override
+    public List<Expr> getExprs() {
+        List<Expr> underlyingExprs = new LinkedList<>();
+        underlyingExprs.add(this);
+        underlyingExprs.addAll(condition.getExprs());
+        underlyingExprs.addAll(thenExpr.getExprs());
+        underlyingExprs.addAll(elseExpr.getExprs());
+
+        return underlyingExprs;
     }
 }
