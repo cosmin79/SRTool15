@@ -30,6 +30,16 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
         this.strategyName = "houdiniLoopSummary";
     }
 
+    private TransformationResult applyMethodSummarisation(Map<Node, Node> predMap, Program program) {
+        program = (Program) new MethodSummarisationVisitor(predMap, program).visit(program);
+        debugUtil.print("Code after method summarisation is applied:\n" +
+                new PrintVisitor().visit(program));
+        program = (Program) new ShadowVisitor(predMap, program).visit(program);
+        program = (Program) new DefaultVisitor(predMap).visit(program);
+
+        return new TransformationResult(program, !Thread.currentThread().isInterrupted());
+    }
+
     private boolean addCandidatePrePostConditions() {
         for (ProcedureDecl procedureDecl : program.getProcedureDecls()) {
             for (PrePostCondition prePostCondition : procedureDecl.getPrePostConditions()) {
@@ -88,9 +98,11 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
             debugUtil.print("Program being considered in this HoudiniWithLoopSummary iteration:\n" +
                     new PrintVisitor().visit(intermediateProgram));
 
-            intermediateProgram =
-                    (Program) new MethodSummarisationVisitor(predMap, intermediateProgram).
-                            visit(intermediateProgram);
+            TransformationResult methodSummaryResult = applyMethodSummarisation(predMap, intermediateProgram);
+            if (!methodSummaryResult.isSuccess()) {
+                return SMTReturnCode.UNKNOWN;
+            }
+            intermediateProgram = methodSummaryResult.getProgram();
             debugUtil.print("Code after method summarisation is applied:\n" +
                     new PrintVisitor().visit(intermediateProgram));
 
@@ -107,6 +119,10 @@ public class HoudiniWithLoopSummary implements Callable<SMTReturnCode> {
                     debugUtil);
             updateHoudini = false;
             for (ProcedureDecl proc : intermediateProgram.getProcedureDecls()) {
+                if (Thread.currentThread().isInterrupted()) {
+                    return SMTReturnCode.UNKNOWN;
+                }
+
                 SMTResult result;
                 try {
                     result = methodVerifier.verifyMethod(proc);

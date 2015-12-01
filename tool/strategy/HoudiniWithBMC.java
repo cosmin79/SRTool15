@@ -45,6 +45,8 @@ public class HoudiniWithBMC implements Callable<SMTReturnCode> {
         program = (Program) new MethodSummarisationVisitor(predMap, program).visit(program);
         debugUtil.print("Code after method summarisation is applied:\n" +
                 new PrintVisitor().visit(program));
+        program = (Program) new ShadowVisitor(predMap, program).visit(program);
+        program = (Program) new DefaultVisitor(predMap).visit(program);
 
         return new TransformationResult(program, !Thread.currentThread().isInterrupted());
     }
@@ -179,7 +181,13 @@ public class HoudiniWithBMC implements Callable<SMTReturnCode> {
                 // analyze this procedure and put it back in the queue if required
 
                 BMCVisitor bmcVisitor = new BMCVisitor(predMap, currUnwind, BmcType.SOUND_PROBE);
-                SMTReturnCode returnCode = applyBMC(predMap, currUnwind, procedureDecl, criticalFailures, bmcVisitor);
+                SMTReturnCode returnCode = applyBMC(
+                        intermediateProgram,
+                        predMap,
+                        currUnwind,
+                        procedureDecl,
+                        criticalFailures,
+                        bmcVisitor);
                 if (returnCode == SMTReturnCode.INCORRECT || returnCode == SMTReturnCode.UNKNOWN) {
                     return returnCode;
                 } else if (returnCode == SMTReturnCode.FAILED_CANDIDATE_HOUDINI) {
@@ -189,7 +197,13 @@ public class HoudiniWithBMC implements Callable<SMTReturnCode> {
                 }
 
                 bmcVisitor = new BMCVisitor(predMap, currUnwind, BmcType.SOUND);
-                returnCode = applyBMC(predMap, currUnwind, procedureDecl, criticalFailures, bmcVisitor);
+                returnCode = applyBMC(
+                        intermediateProgram,
+                        predMap,
+                        currUnwind,
+                        procedureDecl,
+                        criticalFailures,
+                        bmcVisitor);
                 // technically speaking, only last branch should hold?
                 if (returnCode == SMTReturnCode.INCORRECT || returnCode == SMTReturnCode.UNKNOWN) {
                     return returnCode;
@@ -205,7 +219,8 @@ public class HoudiniWithBMC implements Callable<SMTReturnCode> {
         return SMTReturnCode.CORRECT;
     }
 
-    private SMTReturnCode applyBMC(Map<Node, Node> predMap,
+    private SMTReturnCode applyBMC(Program program,
+                                   Map<Node, Node> predMap,
                                    Map<WhileStmt, Integer> currUnwind,
                                    ProcedureDecl procedureDecl,
                                    Set<Node> criticalFailures,
